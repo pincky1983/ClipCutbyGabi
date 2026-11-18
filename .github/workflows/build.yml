@@ -22,14 +22,14 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-
       - name: Descarcare FFmpeg 100% Offline in libs
         run: |
+          rm -rf www/libs
           mkdir -p www/libs
-          curl -L https://unpkg.com -o www/libs/ffmpeg.min.js
-          curl -L https://unpkg.com -o www/libs/ffmpeg-core.js
-          curl -L https://unpkg.com -o www/libs/ffmpeg-core.wasm
-
+          npm install @ffmpeg/ffmpeg@0.11.6 @ffmpeg/core-st@0.11.0 --no-save
+          cp node_modules/@ffmpeg/ffmpeg/dist/ffmpeg.min.js www/libs/
+          cp node_modules/@ffmpeg/core-st/dist/ffmpeg-core.js www/libs/
+          cp node_modules/@ffmpeg/core-st/dist/ffmpeg-core.wasm www/libs/
       - name: Instalare dependente si generare Android
         run: |
           npm install
