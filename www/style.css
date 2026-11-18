@@ -1,0 +1,127 @@
+* {
+    box-sizing: border-box;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+body {
+    background-color: #121212;
+    color: #ffffff;
+    margin: 0;
+    padding: 16px;
+    display: flex;
+    justify-content: center;
+}
+
+.container {
+    width: 100%;
+    max-width: 450px;
+}
+
+.header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+h2 {
+    margin: 0;
+    color: #4caf50;
+    font-size: 20px;
+}
+
+#langSelect {
+    background: #1e1e1e;
+    color: white;
+    border: 1px solid #444;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.card {
+    background: #1e1e1e;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #333;
+}
+
+input[type="file"] {
+    display: none;
+}
+
+.btn-upload {
+    display: block;
+    background: #2196f3;
+    color: white;
+    text-align: center;
+    padding: 12px;
+    border-radius: 6px;
+    font-weight: bold;
+}
+
+#fileName {
+    text-align: center;
+    font-size: 13px;
+    color: #aaa;
+    margin: 10px 0 0 0;
+    word-break: break-all;
+}
+
+video {
+    width: 100%;
+    max-height: 200px;
+    margin-top: 12px;
+    border-radius: 6px;
+    background: #000;
+}
+
+.time-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+input[type="text"] {
+    flex: 1;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #2c2c2c;
+    color: white;
+    font-size: 15px;
+}
+
+.btn-small {
+    width: auto;
+    padding: 0 12px;
+    background: #333;
+    font-size: 13px;
+    border: 1px solid #555;
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    background: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+button:disabled {
+    background: #444;
+    color: #888;
+}
+
+.status {
+    margin-top: 15px;
+    padding: 12px;
+    background: #1a1a1a;
+    border-left: 4px solid #ff9800;
+    font-size: 14px;
+    border-radius: 4px;
+}
