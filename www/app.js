@@ -1,9 +1,10 @@
-const { createFFmpeg, fetchFile } = FFmpeg;
+const { createFFmpeg } = FFmpeg;
+const baseUrl = window.location.origin;
 const ffmpeg = createFFmpeg({
     log: true,
-    corePath: 'libs/ffmpeg-core.js'
+    corePath: `${baseUrl}/libs/ffmpeg-core.js`,
+    wasmPath: `${baseUrl}/libs/ffmpeg-core.wasm`
 });
-
 const fileInput = document.getElementById('fileInput');
 const fileNameDisplay = document.getElementById('fileName');
 const mediaPlayer = document.getElementById('mediaPlayer');
