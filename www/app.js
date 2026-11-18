@@ -78,7 +78,8 @@ cutBtn.addEventListener('click', async () => {
         const inputName = `input.${ext}`;
         const outputName = `cut_${selectedFile.name}`;
 
-        ffmpeg.FS('writeFile', inputName, await fetchFile(selectedFile));
+        const arrayBuffer = await selectedFile.arrayBuffer();
+ffmpeg.FS('writeFile', inputName, new Uint8Array(arrayBuffer));
         await ffmpeg.run('-i', inputName, '-ss', start, '-to', end, '-c', 'copy', outputName);
 
         const data = ffmpeg.FS('readFile', outputName);
@@ -92,7 +93,7 @@ cutBtn.addEventListener('click', async () => {
         statusBox.textContent = translations[currentLang].done;
     } catch (err) {
         console.error(err);
-        statusBox.textContent = translations[currentLang].error;
+        statusBox.textContent = "Eroare: " + (err.message || err);
     } finally {
         cutBtn.disabled = false;
     }
