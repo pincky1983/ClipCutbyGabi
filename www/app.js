@@ -318,11 +318,32 @@ document.getElementById('slideAudio').addEventListener('change', (e) => {
     }
 });
 
+function resizeImageToJpegBytes(file) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1280;
+            canvas.height = 720;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, 1280, 720);
+            const scale = Math.min(1280 / img.width, 720 / img.height);
+            const w = img.width * scale;
+            const h = img.height * scale;
+            ctx.drawImage(img, (1280 - w) / 2, (720 - h) / 2, w, h);
+                        canvas.toBlob(async (blob) => {
+                resolve(new Uint8Array(await blob.arrayBuffer()));
+            }, 'image/jpeg', 0.92);
+        };
+        img.src = URL.createObjectURL(file);
+    });
+}
 document.getElementById('slideBtn').addEventListener('click', async () => {
     if (slideFiles.length === 0) { alert(translations[currentLang].alertFiles); return; }
     const btn = document.getElementById('slideBtn');
     const secPerPhoto = Math.max(1, parseInt(document.getElementById('slideDuration').value) || 3);
-    const frames = secPerPhoto * 25;
+    const frames = secPerPhoto * 15;
 
     try {
         btn.disabled = true;
@@ -336,20 +357,19 @@ document.getElementById('slideBtn').addEventListener('click', async () => {
 
         for (let i = 0; i < slideFiles.length; i++) {
             const imgName = `img_${i}.jpg`;
-            ffmpeg.FS('writeFile', imgName, new Uint8Array(await slideFiles[i].arrayBuffer()));
+            const resizedBytes = await resizeImageToJpegBytes(slideFiles[i]);
+            ffmpeg.FS('writeFile', imgName, resizedBytes);
             args.push('-loop', '1', '-t', `${secPerPhoto}`, '-i', imgName);
 
             const zoomExpr = (i % 2 === 0)
-                ? `min(zoom+0.0015,1.25)`
-                : `if(eq(on,1),1.25,max(1.0,zoom-0.0015))`;
+                ? `min(zoom+0.002,1.22)`
+                : `if(eq(on,1),1.22,max(1.0,zoom-0.002))`;
 
             filterParts.push(
-                `[${i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,` +
-                `zoompan=z='${zoomExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1280x720:fps=25[v${i}]`
+                `[${i}:v]zoompan=z='${zoomExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1280x720:fps=15[v${i}]`
             );
             concatInputs += `[v${i}]`;
         }
-
         let filterComplex = filterParts.join(';') + `;${concatInputs}concat=n=${slideFiles.length}:v=1:a=0[outv]`;
 
         if (slideAudioFile) {

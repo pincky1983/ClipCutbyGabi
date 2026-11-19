@@ -34,12 +34,12 @@ jobs:
         run: |
           npm install
           npx cap add android
-                    mkdir -p assets
-          cp www/icon.svg assets/icon.svg
+                              mkdir -p assets
+          convert -background none -resize 1024x1024 www/icon.svg assets/icon.png
+          cp assets/icon.png assets/icon-foreground.png
           npx --yes @capacitor/assets generate --android --iconBackgroundColor '#090d16'
                     sed -i 's/<\/manifest>/<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/><uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"\/><\/manifest>/g' android/app/src/main/AndroidManifest.xml
           npx cap sync android
-
       - name: Compilare APK
         run: |
           cd android
