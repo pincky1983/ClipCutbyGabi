@@ -116,47 +116,38 @@ function blobToBase64(blob) {
 
 // Functia de salvare in locatia aleasa de utilizator (Android APK + Fallback Web)
 document.getElementById('changeFolderBtn').addEventListener('click', () => {
-    localStorage.removeItem('savedFolderUri');
-    alert("Folderul memorat a fost șters. La următoarea tăiere vei alege unul nou.");
+    localStorage.removeItem('savedFolderName');
+    alert("Folderul memorat a fost resetat.");
 });
 
 async function saveOutputFile(blob, fileName) {
     if (window.Capacitor && window.Capacitor.isNativePlatform()) {
         try {
-            const { FilePicker, CapacitorSAF } = Capacitor.Plugins;
-            let folderUri = localStorage.getItem('savedFolderUri');
+            const { FilePicker, Filesystem } = Capacitor.Plugins;
+            await Filesystem.requestPermissions();
 
-            if (!folderUri) {
+            let folderName = localStorage.getItem('savedFolderName');
+            if (!folderName) {
                 const result = await FilePicker.pickDirectory();
-                folderUri = result.path;
-                localStorage.setItem('savedFolderUri', folderUri);
+                const decoded = decodeURIComponent(result.path);
+                folderName = decoded.includes("primary:") ? decoded.split("primary:").pop() : "ClipCut";
+                localStorage.setItem('savedFolderName', folderName);
             }
 
             const base64Data = await blobToBase64(blob);
+            const targetPath = `ClipCut/${folderName.split('/').pop()}/${fileName}`;
 
-            try {
-                await CapacitorSAF.writeFile({
-                    uri: folderUri,
-                    filename: fileName,
-                    data: base64Data,
-                    encoding: 'base64'
-                });
-            } catch (writeErr) {
-                const result = await FilePicker.pickDirectory();
-                folderUri = result.path;
-                localStorage.setItem('savedFolderUri', folderUri);
-                await CapacitorSAF.writeFile({
-                    uri: folderUri,
-                    filename: fileName,
-                    data: base64Data,
-                    encoding: 'base64'
-                });
-            }
+            await Filesystem.writeFile({
+                path: targetPath,
+                data: base64Data,
+                directory: 'DOCUMENTS',
+                recursive: true
+            });
 
-            alert(`Salvat automat: ${fileName}`);
+            alert(`Salvat în: Documents/${targetPath}`);
             return;
         } catch (err) {
-            alert("Eroare salvare SAF: " + (err.message || err));
+            alert("Eroare salvare: " + (err.message || err));
             return;
         }
     }
@@ -169,3 +160,4 @@ async function saveOutputFile(blob, fileName) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
+
