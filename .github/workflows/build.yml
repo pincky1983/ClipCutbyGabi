@@ -37,8 +37,9 @@ jobs:
                               mkdir -p assets
                     sudo apt-get update && sudo apt-get install -y librsvg2-bin
           rsvg-convert -w 1024 -h 1024 www/icon.svg -o assets/icon.png
-          cp assets/icon.png assets/icon-foreground.png
-          npx --yes @capacitor/assets generate --android --iconBackgroundColor '#090d16'
+                    cp assets/icon.png assets/icon-foreground.png
+          cp assets/icon.png assets/splash.png
+          npx --yes @capacitor/assets generate --android --assetPath assets --iconBackgroundColor '#090d16' --splashBackgroundColor '#090d16'
                     sed -i 's/<\/manifest>/<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/><uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"\/><\/manifest>/g' android/app/src/main/AndroidManifest.xml
           npx cap sync android
       - name: Compilare APK
