@@ -115,11 +115,18 @@ function blobToBase64(blob) {
 }
 
 // Functia de salvare in locatia aleasa de utilizator (Android APK + Fallback Web)
-document.getElementById('changeFolderBtn').addEventListener('click', () => {
-    localStorage.removeItem('savedFolderName');
-    alert("Folderul memorat a fost resetat.");
+document.getElementById('changeFolderBtn').addEventListener('click', async () => {
+    try {
+        const { FilePicker } = Capacitor.Plugins;
+        const result = await FilePicker.pickDirectory();
+        const decoded = decodeURIComponent(result.path);
+        const folderName = decoded.includes("primary:") ? decoded.split("primary:").pop() : "ClipCut";
+        localStorage.setItem('savedFolderName', folderName);
+        alert("Noua locație memorată: Documents/ClipCut/" + folderName.split('/').pop());
+    } catch (err) {
+        alert("Selecție anulată.");
+    }
 });
-
 async function saveOutputFile(blob, fileName) {
     if (window.Capacitor && window.Capacitor.isNativePlatform()) {
         try {
