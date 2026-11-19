@@ -115,42 +115,48 @@ function blobToBase64(blob) {
 }
 
 // Functia de salvare in locatia aleasa de utilizator (Android APK + Fallback Web)
+document.getElementById('changeFolderBtn').addEventListener('click', () => {
+    localStorage.removeItem('savedFolderUri');
+    alert("Folderul memorat a fost șters. La următoarea tăiere vei alege unul nou.");
+});
+
 async function saveOutputFile(blob, fileName) {
     if (window.Capacitor && window.Capacitor.isNativePlatform()) {
         try {
-            const { FilePicker, Filesystem } = Capacitor.Plugins;
-            await Filesystem.requestPermissions();
+            const { FilePicker, CapacitorSAF } = Capacitor.Plugins;
+            let folderUri = localStorage.getItem('savedFolderUri');
 
-            const result = await FilePicker.pickDirectory();
-            let rawPath = decodeURIComponent(result.path);
-            let folderPath = "Download";
-
-            if (rawPath.includes("primary:")) {
-                folderPath = rawPath.split("primary:").pop();
+            if (!folderUri) {
+                const result = await FilePicker.pickDirectory();
+                folderUri = result.path;
+                localStorage.setItem('savedFolderUri', folderUri);
             }
 
             const base64Data = await blobToBase64(blob);
 
             try {
-                await Filesystem.writeFile({
-                    path: `${folderPath}/${fileName}`,
+                await CapacitorSAF.writeFile({
+                    uri: folderUri,
+                    filename: fileName,
                     data: base64Data,
-                    directory: 'EXTERNAL_STORAGE',
-                    recursive: true
+                    encoding: 'base64'
                 });
-                alert(`Salvat în: ${folderPath}/${fileName}`);
             } catch (writeErr) {
-                await Filesystem.writeFile({
-                    path: `ClipCut/${fileName}`,
+                const result = await FilePicker.pickDirectory();
+                folderUri = result.path;
+                localStorage.setItem('savedFolderUri', folderUri);
+                await CapacitorSAF.writeFile({
+                    uri: folderUri,
+                    filename: fileName,
                     data: base64Data,
-                    directory: 'DOCUMENTS',
-                    recursive: true
+                    encoding: 'base64'
                 });
-                alert(`Salvat în: Documents/ClipCut/${fileName}`);
             }
+
+            alert(`Salvat automat: ${fileName}`);
             return;
         } catch (err) {
-            alert("Eroare salvare: " + (err.message || err));
+            alert("Eroare salvare SAF: " + (err.message || err));
             return;
         }
     }

@@ -20,7 +20,7 @@
         
         <div class="card">
             <label for="fileInput" class="btn-upload" data-i18n="chooseFile">1. Alege MP3 sau MP4</label>
-            <input type="file" id="fileInput" accept=".mp3,.mp4,audio/mpeg,video/mp4">
+                        <input type="file" id="fileInput" accept="video/*,audio/*,.mp4,.mp3">
             <p id="fileName" data-i18n="noFile">Niciun fișier selectat</p>
             <video id="mediaPlayer" controls style="display:none;"></video>
         </div>
@@ -38,10 +38,12 @@
         </div>
 
         <button id="cutBtn" disabled data-i18n="cutSave">3. Taie și Salvează</button>
+                <button type="button" id="changeFolderBtn" class="btn-small" style="width:100%; margin-top:8px; padding:10px;">
+            📁 Schimbă folderul de salvare
+        </button>
         <div id="statusBox" class="status" data-i18n="waiting">Așteptare fișier...</div>
     </div>
     <script src="lang.js"></script>
-    <script src="app.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
