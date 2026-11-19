@@ -128,14 +128,23 @@ async function saveOutputFile(blob, fileName) {
 
             const base64Data = await blobToBase64(blob);
 
-            await Filesystem.writeFile({
-                path: `${folderPath}/${fileName}`,
-                data: base64Data,
-                directory: 'EXTERNAL_STORAGE',
-                recursive: true
-            });
-
-            alert(`Salvat cu succes în: ${folderPath}/${fileName}`);
+            try {
+                await Filesystem.writeFile({
+                    path: `${folderPath}/${fileName}`,
+                    data: base64Data,
+                    directory: 'EXTERNAL_STORAGE',
+                    recursive: true
+                });
+                alert(`Salvat în: ${folderPath}/${fileName}`);
+            } catch (writeErr) {
+                await Filesystem.writeFile({
+                    path: `ClipCut/${fileName}`,
+                    data: base64Data,
+                    directory: 'DOCUMENTS',
+                    recursive: true
+                });
+                alert(`Salvat în: Documents/ClipCut/${fileName}`);
+            }
             return;
         } catch (err) {
             alert("Eroare salvare: " + (err.message || err));
