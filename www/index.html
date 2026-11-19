@@ -17,34 +17,102 @@
                 <option value="en">🇬🇧 EN</option>
             </select>
         </div>
-        
-        <div class="card">
-            <label for="fileInput" class="btn-upload" data-i18n="chooseFile">1. Alege MP3 sau MP4</label>
-                        <input type="file" id="fileInput" accept="video/*,audio/*,.mp4,.mp3">
-            <p id="fileName" data-i18n="noFile">Niciun fișier selectat</p>
-            <video id="mediaPlayer" controls style="display:none;"></video>
+        <div class="tabs-bar">
+            <button type="button" class="tab-btn active" data-tab="tabCut" data-i18n="tabCut">✂️ Taie</button>
+            <button type="button" class="tab-btn" data-tab="tabMerge" data-i18n="tabMerge">🔗 Lipește</button>
+            <button type="button" class="tab-btn" data-tab="tabExtract" data-i18n="tabExtract">🎵 MP3</button>
+            <button type="button" class="tab-btn" data-tab="tabMux" data-i18n="tabMux">🎬 V+A</button>
         </div>
 
-        <div class="card">
-            <label data-i18n="intervalLabel">2. Interval (secunde sau HH:MM:SS)</label>
-            <div class="time-row">
-                <input type="text" id="startTime" value="00:00:00">
-                <button type="button" class="btn-small" id="setStartBtn" data-i18n="getTime">Ia timp curent</button>
+        <!-- TAB 1: TAIE -->
+        <div id="tabCut" class="tab-panel active">
+            <div class="card">
+                <label for="fileInput" class="btn-upload" data-i18n="chooseFile">1. Alege MP3 sau MP4</label>
+                <input type="file" id="fileInput" accept="video/*,audio/*,.mp4,.mp3">
+                <p id="fileName" data-i18n="noFile">Niciun fișier selectat</p>
+                <video id="mediaPlayer" controls style="display:none;"></video>
             </div>
-            <div class="time-row">
-                <input type="text" id="endTime" value="00:00:10">
-                <button type="button" class="btn-small" id="setEndBtn" data-i18n="getTime">Ia timp curent</button>
+            <div class="card">
+                <label data-i18n="intervalLabel">2. Interval (secunde sau HH:MM:SS)</label>
+                <div class="time-row">
+                    <input type="text" id="startTime" value="00:00:00">
+                    <button type="button" class="btn-small" id="setStartBtn" data-i18n="getTime">Ia timp curent</button>
+                </div>
+                <div class="time-row">
+                    <input type="text" id="endTime" value="00:00:10">
+                    <button type="button" class="btn-small" id="setEndBtn" data-i18n="getTime">Ia timp curent</button>
+                </div>
             </div>
+            <div class="card">
+                <label data-i18n="outputNameLabel">Nume fișier nou (fără extensie)</label>
+                <input type="text" id="outputNameInput" placeholder="ex: clip_taiat">
+            </div>
+            <button id="cutBtn" disabled data-i18n="cutSave">3. Taie și Salvează</button>
         </div>
-        <div class="card">
-            <label data-i18n="outputNameLabel">Nume fișier nou (fără extensie)</label>
-            <input type="text" id="outputNameInput" placeholder="ex: clip_taiat">
+
+        <!-- TAB 2: LIPESTE -->
+        <div id="tabMerge" class="tab-panel">
+            <div class="card">
+                <label for="mergeFile1" class="btn-upload" data-i18n="choosePart1">1. Alege Partea 1 (MP4/MP3)</label>
+                <input type="file" id="mergeFile1" accept="video/*,audio/*,.mp4,.mp3">
+                <p id="mergeName1" style="text-align:center; font-size:13px; color:#8b949e; margin-top:8px;" data-i18n="noFile">Niciun fișier selectat</p>
+            </div>
+            <div class="card">
+                <label for="mergeFile2" class="btn-upload" data-i18n="choosePart2">2. Alege Partea 2 (același format)</label>
+                <input type="file" id="mergeFile2" accept="video/*,audio/*,.mp4,.mp3">
+                <p id="mergeName2" style="text-align:center; font-size:13px; color:#8b949e; margin-top:8px;" data-i18n="noFile">Niciun fișier selectat</p>
+            </div>
+            <div class="card">
+                <label data-i18n="outputNameLabel">Nume fișier nou (fără extensie)</label>
+                <input type="text" id="mergeOutputName" value="clip_unit">
+            </div>
+            <button id="mergeBtn" style="width:100%; padding:16px; background:linear-gradient(135deg,#238636,#2ea043); color:#fff; border:none; border-radius:14px; font-size:16px; font-weight:700;" data-i18n="mergeSave">🔗 Lipește și Salvează</button>
         </div>
-        <button id="cutBtn" disabled data-i18n="cutSave">3. Taie și Salvează</button>
-                <button type="button" id="changeFolderBtn" class="btn-small" style="width:100%; margin-top:8px; padding:10px;">
+
+        <!-- TAB 3: EXTRAGE MP3 -->
+        <div id="tabExtract" class="tab-panel">
+            <div class="card">
+                <label for="extractFile" class="btn-upload" data-i18n="chooseVideo">1. Alege Video (MP4)</label>
+                <input type="file" id="extractFile" accept="video/*,.mp4">
+                <p id="extractName" style="text-align:center; font-size:13px; color:#8b949e; margin-top:8px;" data-i18n="noFile">Niciun fișier selectat</p>
+            </div>
+            <div class="card">
+                <label data-i18n="outputNameLabel">Nume fișier MP3 (fără extensie)</label>
+                <input type="text" id="extractOutputName" value="audio_extras">
+            </div>
+            <button id="extractBtn" style="width:100%; padding:16px; background:linear-gradient(135deg,#238636,#2ea043); color:#fff; border:none; border-radius:14px; font-size:16px; font-weight:700;" data-i18n="extractSave">🎵 Extrage MP3 și Salvează</button>
+        </div>
+
+        <!-- TAB 4: VIDEO + AUDIO -->
+        <div id="tabMux" class="tab-panel">
+            <div class="card">
+                <label for="muxVideoFile" class="btn-upload" data-i18n="chooseVideo">1. Alege Video (MP4)</label>
+                <input type="file" id="muxVideoFile" accept="video/*,.mp4">
+                <p id="muxVideoName" style="text-align:center; font-size:13px; color:#8b949e; margin-top:8px;" data-i18n="noFile">Niciun fișier selectat</p>
+            </div>
+            <div class="card">
+                <label for="muxAudioFile" class="btn-upload" data-i18n="chooseAudio">2. Alege Sunet Nou (MP3)</label>
+                <input type="file" id="muxAudioFile" accept="audio/*,.mp3">
+                <p id="muxAudioName" style="text-align:center; font-size:13px; color:#8b949e; margin-top:8px;" data-i18n="noFile">Niciun fișier selectat</p>
+            </div>
+            <div class="card">
+                <label data-i18n="outputNameLabel">Nume fișier nou (fără extensie)</label>
+                <input type="text" id="muxOutputName" value="video_nou">
+            </div>
+            <button id="muxBtn" style="width:100%; padding:16px; background:linear-gradient(135deg,#238636,#2ea043); color:#fff; border:none; border-radius:14px; font-size:16px; font-weight:700;" data-i18n="muxSave">🎬 Combină și Salvează</button>
+        </div>
+        <button type="button" id="changeFolderBtn" class="btn-small" style="width:100%; margin-top:10px; padding:12px;" data-i18n="changeFolder">
             📁 Schimbă folderul de salvare
         </button>
-        <div id="statusBox" class="status" data-i18n="waiting">Așteptare fișier...</div>
+                <div class="status-wrapper">
+            <div id="progressFill" class="progress-fill"></div>
+            <div id="statusBox" class="status-text" data-i18n="waiting">Așteptare fișier...</div>
+        </div>
+        <div id="eqVisualizer" class="equalizer">
+            <span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span>
+        </div>
     </div>
     <script src="lang.js"></script>
     <script src="app.js"></script>

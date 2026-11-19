@@ -1,61 +1,99 @@
 const translations = {
     ro: {
+        tabCut: "✂️ Taie",
+        tabMerge: "🔗 Lipește",
+        tabExtract: "🎵 MP3",
+        tabMux: "🎬 V+A",
         chooseFile: "1. Alege MP3 sau MP4",
         noFile: "Niciun fișier selectat",
         selected: "Selectat: ",
         intervalLabel: "2. Interval (secunde sau HH:MM:SS)",
-                outputNameLabel: "Nume fișier nou (fără extensie)",
+        outputNameLabel: "Nume fișier nou (fără extensie)",
         getTime: "Ia timp curent",
         cutSave: "3. Taie și Salvează",
+        choosePart1: "1. Alege Partea 1 (MP4/MP3)",
+        choosePart2: "2. Alege Partea 2 (același format)",
+        mergeSave: "🔗 Lipește și Salvează",
+        chooseVideo: "1. Alege Video (MP4)",
+        extractSave: "🎵 Extrage MP3 și Salvează",
+        chooseAudio: "2. Alege Sunet Nou (MP3)",
+        muxSave: "🎬 Combină și Salvează",
+        changeFolder: "📁 Schimbă folderul de salvare",
         waiting: "Așteptare fișier...",
         ready: "Fișier pregătit. Apasă butonul verde.",
         loadingEngine: "Se încarcă motorul offline...",
-        processing: "Se taie fișierul...",
+        processing: "Se procesează fișierul...",
         done: "Gata! Fișierul a fost salvat.",
-        error: "Eroare la procesare. Verifică timpul.",
-        alertTime: "Introdu timpul de început și de final!"
+        error: "Eroare la procesare.",
+        alertTime: "Introdu timpul de început și de final!",
+        alertFiles: "Selectează toate fișierele necesare mai întâi!"
     },
     es: {
+        tabCut: "✂️ Cortar",
+        tabMerge: "🔗 Unir",
+        tabExtract: "🎵 MP3",
+        tabMux: "🎬 V+A",
         chooseFile: "1. Elegir MP3 o MP4",
         noFile: "Ningún archivo seleccionado",
         selected: "Seleccionado: ",
-                outputNameLabel: "Nombre del nuevo archivo (sin extensión)",
         intervalLabel: "2. Intervalo (segundos o HH:MM:SS)",
+        outputNameLabel: "Nombre del nuevo archivo (sin extensión)",
         getTime: "Tomar tiempo",
         cutSave: "3. Cortar y Guardar",
+        choosePart1: "1. Elegir Parte 1 (MP4/MP3)",
+        choosePart2: "2. Elegir Parte 2 (mismo formato)",
+        mergeSave: "🔗 Unir y Guardar",
+        chooseVideo: "1. Elegir Video (MP4)",
+        extractSave: "🎵 Extraer MP3 y Guardar",
+        chooseAudio: "2. Elegir Audio Nuevo (MP3)",
+        muxSave: "🎬 Combinar y Guardar",
+        changeFolder: "📁 Cambiar carpeta de guardado",
         waiting: "Esperando archivo...",
         ready: "Archivo listo. Pulsa el botón verde.",
         loadingEngine: "Cargando motor offline...",
-        processing: "Cortando archivo...",
+        processing: "Procesando archivo...",
         done: "¡Listo! Archivo guardado.",
-        error: "Error al procesar. Revisa el tiempo.",
-        alertTime: "¡Introduce el tiempo de inicio y fin!"
+        error: "Error al procesar.",
+        alertTime: "¡Introduce el tiempo de inicio y fin!",
+        alertFiles: "¡Selecciona primero todos los archivos necesarios!"
     },
     en: {
+        tabCut: "✂️ Cut",
+        tabMerge: "🔗 Merge",
+        tabExtract: "🎵 MP3",
+        tabMux: "🎬 V+A",
         chooseFile: "1. Choose MP3 or MP4",
         noFile: "No file selected",
         selected: "Selected: ",
-                outputNameLabel: "New file name (without extension)",
         intervalLabel: "2. Interval (seconds or HH:MM:SS)",
+        outputNameLabel: "New file name (without extension)",
         getTime: "Get current time",
         cutSave: "3. Cut and Save",
+        choosePart1: "1. Choose Part 1 (MP4/MP3)",
+        choosePart2: "2. Choose Part 2 (same format)",
+        mergeSave: "🔗 Merge and Save",
+        chooseVideo: "1. Choose Video (MP4)",
+        extractSave: "🎵 Extract MP3 and Save",
+        chooseAudio: "2. Choose New Audio (MP3)",
+        muxSave: "🎬 Combine and Save",
+        changeFolder: "📁 Change save folder",
         waiting: "Waiting for file...",
         ready: "File ready. Press the green button.",
         loadingEngine: "Loading offline engine...",
-        processing: "Cutting file...",
+        processing: "Processing file...",
         done: "Done! File saved.",
-        error: "Processing error. Check the time format.",
-        alertTime: "Please enter start and end times!"
+        error: "Processing error.",
+        alertTime: "Please enter start and end times!",
+        alertFiles: "Please select all required files first!"
     }
 };
 
 let currentLang = 'ro';
-
 function updateLanguage(lang) {
     currentLang = lang;
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
-        if (translations[lang][key]) {
+        if (translations[lang] && translations[lang][key]) {
             el.textContent = translations[lang][key];
         }
     });
