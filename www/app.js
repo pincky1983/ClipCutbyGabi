@@ -29,9 +29,9 @@ langSelect.addEventListener('change', (e) => {
 // Selectarea fisierului si incarcarea in player
 fileInput.addEventListener('change', (e) => {
     if (e.target.files.length > 0) {
-                const baseName = selectedFile.name.replace(/\.[^/.]+$/, "");
+                        selectedFile = e.target.files.item(0);
+        const baseName = selectedFile.name.replace(/\.[^/.]+$/, "");
         outputNameInput.value = `cut_${baseName}`;
-        selectedFile = e.target.files.item(0);
         fileNameDisplay.textContent = translations[currentLang].selected + selectedFile.name;
         
         const fileURL = URL.createObjectURL(selectedFile);
