@@ -115,32 +115,33 @@ function blobToBase64(blob) {
 async function saveOutputFile(blob, fileName) {
     if (window.Capacitor && window.Capacitor.isNativePlatform()) {
         try {
-            const { FilePicker } = Capacitor.Plugins;
-            const { Filesystem } = Capacitor.Plugins;
-
-            // Cere permisiunile de stocare daca este necesar
+            const { FilePicker, Filesystem } = Capacitor.Plugins;
             await Filesystem.requestPermissions();
 
-            // Deschide selectorul nativ de foldere Android
             const result = await FilePicker.pickDirectory();
-            const folderPath = result.path;
+            let rawPath = decodeURIComponent(result.path);
+            let folderPath = "Download";
+
+            if (rawPath.includes("primary:")) {
+                folderPath = rawPath.split("primary:").pop();
+            }
 
             const base64Data = await blobToBase64(blob);
 
-            // Scrie fisierul direct in folderul ales
             await Filesystem.writeFile({
                 path: `${folderPath}/${fileName}`,
-                data: base64Data
+                data: base64Data,
+                directory: 'EXTERNAL_STORAGE',
+                recursive: true
             });
+
+            alert(`Salvat cu succes în: ${folderPath}/${fileName}`);
             return;
         } catch (err) {
-            console.error("Eroare salvare nativa:", err);
-            alert("Eroare la alegerea folderului: " + err.message);
+            alert("Eroare salvare: " + (err.message || err));
             return;
         }
     }
-
-    // Daca ruleaza in browser (pentru testare in Spck)
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
