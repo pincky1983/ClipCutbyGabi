@@ -84,9 +84,12 @@ cutBtn.addEventListener('click', async () => {
 ffmpeg.FS('writeFile', inputName, new Uint8Array(arrayBuffer));
         await ffmpeg.run('-i', inputName, '-ss', start, '-to', end, '-c', 'copy', outputName);
 
-        const data = ffmpeg.FS('readFile', outputName);
+                const data = ffmpeg.FS('readFile', outputName);
+        if (data.byteLength === 0) {
+            throw new Error("Fișier gol (0 bytes). Verifică intervalul!");
+        }
         const mime = ext === 'mp3' ? 'audio/mpeg' : 'video/mp4';
-        const blob = new Blob([data.buffer], { type: mime });
+        const blob = new Blob([data], { type: mime });
 
         await saveOutputFile(blob, outputName);
 
