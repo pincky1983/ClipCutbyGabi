@@ -301,3 +301,78 @@ async function saveOutputFile(blob, fileName) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
+// --- TAB 5: SLIDESHOW ANIMAT FOTO + MP3 ---
+let slideFiles = [], slideAudioFile = null;
+
+document.getElementById('slideImages').addEventListener('change', (e) => {
+    slideFiles = Array.from(e.target.files);
+    if (slideFiles.length > 0) {
+        document.getElementById('slideImagesName').textContent = slideFiles.length + (translations[currentLang].photosSelected || " poze selectate");
+    }
+});
+
+document.getElementById('slideAudio').addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        slideAudioFile = e.target.files.item(0);
+        document.getElementById('slideAudioName').textContent = translations[currentLang].selected + slideAudioFile.name;
+    }
+});
+
+document.getElementById('slideBtn').addEventListener('click', async () => {
+    if (slideFiles.length === 0) { alert(translations[currentLang].alertFiles); return; }
+    const btn = document.getElementById('slideBtn');
+    const secPerPhoto = Math.max(1, parseInt(document.getElementById('slideDuration').value) || 3);
+    const frames = secPerPhoto * 25;
+
+    try {
+        btn.disabled = true;
+        await ensureFFmpeg();
+        const customName = document.getElementById('slideOutputName').value.trim() || `colaj_${Date.now()}`;
+        const outName = `${customName}.mp4`;
+
+        let args = [];
+        let filterParts = [];
+        let concatInputs = "";
+
+        for (let i = 0; i < slideFiles.length; i++) {
+            const imgName = `img_${i}.jpg`;
+            ffmpeg.FS('writeFile', imgName, new Uint8Array(await slideFiles[i].arrayBuffer()));
+            args.push('-loop', '1', '-t', `${secPerPhoto}`, '-i', imgName);
+
+            const zoomExpr = (i % 2 === 0)
+                ? `min(zoom+0.0015,1.25)`
+                : `if(eq(on,1),1.25,max(1.0,zoom-0.0015))`;
+
+            filterParts.push(
+                `[${i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,` +
+                `zoompan=z='${zoomExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1280x720:fps=25[v${i}]`
+            );
+            concatInputs += `[v${i}]`;
+        }
+
+        let filterComplex = filterParts.join(';') + `;${concatInputs}concat=n=${slideFiles.length}:v=1:a=0[outv]`;
+
+        if (slideAudioFile) {
+            ffmpeg.FS('writeFile', 'slide_bg.mp3', new Uint8Array(await slideAudioFile.arrayBuffer()));
+            args.push('-i', 'slide_bg.mp3');
+            args.push('-filter_complex', filterComplex, '-map', '[outv]', '-map', `${slideFiles.length}:a`, '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', outName);
+        } else {
+            args.push('-filter_complex', filterComplex, '-map', '[outv]', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', outName);
+        }
+
+        await ffmpeg.run(...args);
+
+        const data = ffmpeg.FS('readFile', outName);
+        const blob = new Blob([data], { type: 'video/mp4' });
+        await saveOutputFile(blob, outName);
+
+        for (let i = 0; i < slideFiles.length; i++) ffmpeg.FS('unlink', `img_${i}.jpg`);
+        if (slideAudioFile) ffmpeg.FS('unlink', 'slide_bg.mp3');
+        ffmpeg.FS('unlink', outName);
+        stopVisualProgress(translations[currentLang].done);
+    } catch (err) {
+        stopVisualProgress("Eroare slideshow: " + (err.message || err));
+    } finally {
+        btn.disabled = false;
+    }
+});

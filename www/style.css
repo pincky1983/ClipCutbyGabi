@@ -204,11 +204,11 @@ button#cutBtn:disabled { background: #21262d; color: #484f58; box-shadow: none; 
     0% { height: 6px; }
     100% { height: 28px; }
 }
-/* Stil pentru meniul cu 4 tab-uri */
+/* Stil pentru meniul cu 5 tab-uri */
 .tabs-bar {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
     margin-bottom: 16px;
 }
 .tab-btn {

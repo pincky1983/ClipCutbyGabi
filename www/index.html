@@ -22,6 +22,7 @@
             <button type="button" class="tab-btn" data-tab="tabMerge" data-i18n="tabMerge">🔗 Lipește</button>
             <button type="button" class="tab-btn" data-tab="tabExtract" data-i18n="tabExtract">🎵 MP3</button>
             <button type="button" class="tab-btn" data-tab="tabMux" data-i18n="tabMux">🎬 V+A</button>
+                        <button type="button" class="tab-btn" data-tab="tabSlide" data-i18n="tabSlide">🖼️ Slide</button>
         </div>
 
         <!-- TAB 1: TAIE -->
@@ -100,6 +101,27 @@
                 <input type="text" id="muxOutputName" value="video_nou">
             </div>
             <button id="muxBtn" style="width:100%; padding:16px; background:linear-gradient(135deg,#238636,#2ea043); color:#fff; border:none; border-radius:14px; font-size:16px; font-weight:700;" data-i18n="muxSave">🎬 Combină și Salvează</button>
+        </div>
+                <!-- TAB 5: SLIDESHOW FOTO + MP3 -->
+        <div id="tabSlide" class="tab-panel">
+            <div class="card">
+                <label for="slideImages" class="btn-upload" data-i18n="choosePhotos">1. Alege Poze (JPG / PNG)</label>
+                <input type="file" id="slideImages" accept="image/*" multiple>
+                <p id="slideImagesName" style="text-align:center; font-size:13px; color:#8b949e; margin-top:8px;" data-i18n="noFile">Niciun fișier selectat</p>
+            </div>
+            <div class="card">
+                <label for="slideAudio" class="btn-upload" data-i18n="chooseAudioOpt">2. Alege Muzică MP3 (opțional)</label>
+                <input type="file" id="slideAudio" accept="audio/*,.mp3">
+                <p id="slideAudioName" style="text-align:center; font-size:13px; color:#8b949e; margin-top:8px;" data-i18n="noFile">Niciun fișier selectat</p>
+            </div>
+            <div class="card">
+                <label data-i18n="secPerPhoto">Secunde per poză & Nume fișier</label>
+                <div class="time-row">
+                    <input type="text" id="slideDuration" value="3" style="max-width:75px;">
+                    <input type="text" id="slideOutputName" value="colaj_foto">
+                </div>
+            </div>
+            <button id="slideBtn" style="width:100%; padding:16px; background:linear-gradient(135deg,#238636,#2ea043); color:#fff; border:none; border-radius:14px; font-size:16px; font-weight:700;" data-i18n="slideSave">🖼️ Creează Video Animat</button>
         </div>
         <button type="button" id="changeFolderBtn" class="btn-small" style="width:100%; margin-top:10px; padding:12px;" data-i18n="changeFolder">
             📁 Schimbă folderul de salvare
