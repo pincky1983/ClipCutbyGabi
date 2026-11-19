@@ -34,12 +34,13 @@ jobs:
         run: |
           npm install
           npx cap add android
-                              mkdir -p assets
-                    sudo apt-get update && sudo apt-get install -y librsvg2-bin
-          rsvg-convert -w 1024 -h 1024 www/icon.svg -o assets/icon.png
-                    cp assets/icon.png assets/icon-foreground.png
-          cp assets/icon.png assets/splash.png
-          npx --yes @capacitor/assets generate --android --assetPath assets --iconBackgroundColor '#090d16' --splashBackgroundColor '#090d16'
+          sudo apt-get update && sudo apt-get install -y librsvg2-bin
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26
+          rsvg-convert -w 48 -h 48 www/icon.svg -o android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          rsvg-convert -w 72 -h 72 www/icon.svg -o android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          rsvg-convert -w 96 -h 96 www/icon.svg -o android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          rsvg-convert -w 144 -h 144 www/icon.svg -o android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          rsvg-convert -w 192 -h 192 www/icon.svg -o android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
                     sed -i 's/<\/manifest>/<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/><uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"\/><\/manifest>/g' android/app/src/main/AndroidManifest.xml
           npx cap sync android
       - name: Compilare APK
