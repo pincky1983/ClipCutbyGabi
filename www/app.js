@@ -85,8 +85,11 @@ cutBtn.addEventListener('click', async () => {
         const outputName = `${customName}.${ext}`;
         const arrayBuffer = await selectedFile.arrayBuffer();
 ffmpeg.FS('writeFile', inputName, new Uint8Array(arrayBuffer));
-        await ffmpeg.run('-i', inputName, '-ss', start, '-to', end, '-c', 'copy', outputName);
-
+                if (ext === 'mp3') {
+            await ffmpeg.run('-ss', start, '-to', end, '-i', inputName, '-c', 'copy', outputName);
+        } else {
+            await ffmpeg.run('-ss', start, '-to', end, '-i', inputName, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23', '-c:a', 'aac', outputName);
+        }
                 const data = ffmpeg.FS('readFile', outputName);
         if (data.byteLength === 0) {
             throw new Error("Fișier gol (0 bytes). Verifică intervalul!");
