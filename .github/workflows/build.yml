@@ -32,15 +32,10 @@ jobs:
           cp node_modules/@ffmpeg/core-st/dist/ffmpeg-core.wasm www/libs/
       - name: Instalare dependente si generare Android
         run: |
-          npm install
-          npx cap add android
-          sudo apt-get update && sudo apt-get install -y librsvg2-bin
-          rm -rf android/app/src/main/res/mipmap-anydpi-v26
-          rsvg-convert -w 48 -h 48 www/icon.svg -o android/app/src/main/res/mipmap-mdpi/ic_launcher.png
-          rsvg-convert -w 72 -h 72 www/icon.svg -o android/app/src/main/res/mipmap-hdpi/ic_launcher.png
-          rsvg-convert -w 96 -h 96 www/icon.svg -o android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
-          rsvg-convert -w 144 -h 144 www/icon.svg -o android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
-          rsvg-convert -w 192 -h 192 www/icon.svg -o android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+                    npm install
+                    npx cap add android
+                    rm -rf android/app/src/main/res/mipmap-anydpi-v26
+                     python3 -c "from PIL import Image; im=Image.open('www/icon.png').convert('RGBA'); [im.resize((s,s)).save(f'android/app/src/main/res/mipmap-{d}/ic_launcher.png') for d,s in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhdpi',192)]]"
                     sed -i 's/<\/manifest>/<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/><uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"\/><\/manifest>/g' android/app/src/main/AndroidManifest.xml
           npx cap sync android
       - name: Compilare APK
