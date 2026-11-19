@@ -2,6 +2,7 @@ const { createFFmpeg } = FFmpeg;
 const baseUrl = window.location.origin;
 const ffmpeg = createFFmpeg({
     log: true,
+    mainName: 'main',
     corePath: `${baseUrl}/libs/ffmpeg-core.js`,
     wasmPath: `${baseUrl}/libs/ffmpeg-core.wasm`
 });
