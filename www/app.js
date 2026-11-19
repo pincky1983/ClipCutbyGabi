@@ -10,6 +10,7 @@ const fileInput = document.getElementById('fileInput');
 const fileNameDisplay = document.getElementById('fileName');
 const mediaPlayer = document.getElementById('mediaPlayer');
 const startTimeInput = document.getElementById('startTime');
+const outputNameInput = document.getElementById('outputNameInput');
 const endTimeInput = document.getElementById('endTime');
 const cutBtn = document.getElementById('cutBtn');
 const statusBox = document.getElementById('statusBox');
@@ -28,6 +29,8 @@ langSelect.addEventListener('change', (e) => {
 // Selectarea fisierului si incarcarea in player
 fileInput.addEventListener('change', (e) => {
     if (e.target.files.length > 0) {
+                const baseName = selectedFile.name.replace(/\.[^/.]+$/, "");
+        outputNameInput.value = `cut_${baseName}`;
         selectedFile = e.target.files.item(0);
         fileNameDisplay.textContent = translations[currentLang].selected + selectedFile.name;
         
@@ -78,8 +81,8 @@ cutBtn.addEventListener('click', async () => {
         statusBox.textContent = translations[currentLang].processing;
         const ext = selectedFile.name.split('.').pop().toLowerCase();
         const inputName = `input.${ext}`;
-        const outputName = `cut_${selectedFile.name}`;
-
+                const customName = outputNameInput.value.trim() || `cut_${Date.now()}`;
+        const outputName = `${customName}.${ext}`;
         const arrayBuffer = await selectedFile.arrayBuffer();
 ffmpeg.FS('writeFile', inputName, new Uint8Array(arrayBuffer));
         await ffmpeg.run('-i', inputName, '-ss', start, '-to', end, '-c', 'copy', outputName);
@@ -90,9 +93,7 @@ ffmpeg.FS('writeFile', inputName, new Uint8Array(arrayBuffer));
         }
         const mime = ext === 'mp3' ? 'audio/mpeg' : 'video/mp4';
         const blob = new Blob([data], { type: mime });
-
         await saveOutputFile(blob, outputName);
-
         ffmpeg.FS('unlink', inputName);
         ffmpeg.FS('unlink', outputName);
         statusBox.textContent = translations[currentLang].done;
@@ -130,28 +131,23 @@ document.getElementById('changeFolderBtn').addEventListener('click', async () =>
 async function saveOutputFile(blob, fileName) {
     if (window.Capacitor && window.Capacitor.isNativePlatform()) {
         try {
-            const { FilePicker, Filesystem } = Capacitor.Plugins;
-            await Filesystem.requestPermissions();
-
-            let folderName = localStorage.getItem('savedFolderName');
-            if (!folderName) {
-                const result = await FilePicker.pickDirectory();
-                const decoded = decodeURIComponent(result.path);
-                folderName = decoded.includes("primary:") ? decoded.split("primary:").pop() : "ClipCut";
-                localStorage.setItem('savedFolderName', folderName);
-            }
-
+            const { Filesystem } = Capacitor.Plugins;
             const base64Data = await blobToBase64(blob);
-            const targetPath = `ClipCut/${folderName.split('/').pop()}/${fileName}`;
+            
+            // Curata numele fisierului de caractere speciale care pot bloca Android
+            const cleanName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const savedFolder = localStorage.getItem('savedFolderName');
+            const subFolder = savedFolder ? savedFolder.split('/').pop().replace(/[^a-zA-Z0-9_-]/g, '') : 'ClipCut';
+            const finalPath = subFolder ? `ClipCut/${subFolder}/${cleanName}` : `ClipCut/${cleanName}`;
 
             await Filesystem.writeFile({
-                path: targetPath,
+                path: finalPath,
                 data: base64Data,
                 directory: 'DOCUMENTS',
                 recursive: true
             });
 
-            alert(`Salvat în: Documents/${targetPath}`);
+            alert(`✅ Salvat cu succes în:\nDocuments/${finalPath}`);
             return;
         } catch (err) {
             alert("Eroare salvare: " + (err.message || err));
@@ -167,4 +163,3 @@ async function saveOutputFile(blob, fileName) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
-
