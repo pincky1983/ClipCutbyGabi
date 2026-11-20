@@ -376,11 +376,9 @@ document.getElementById('slideBtn').addEventListener('click', async () => {
             const clipName = `clip_${i}.mp4`;
             const resizedBytes = await resizeImageToJpegBytes(slideFiles[i]);
             ffmpeg.FS('writeFile', imgName, resizedBytes);
-
-            const zoomExpr = (i % 2 === 0)
-                ? `min(zoom+0.002,1.22)`
-                : `if(eq(on,1),1.22,max(1.0,zoom-0.002))`;
-
+                        const zoomExpr = (i % 2 === 0)
+                ? `1.0+0.20*on/${frames}`
+                : `1.20-0.20*on/${frames}`;
             await ffmpeg.run(
                 '-i', imgName,
                 '-vf', `zoompan=z='${zoomExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1280x720:fps=12`,
