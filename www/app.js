@@ -302,12 +302,20 @@ async function saveOutputFile(blob, fileName) {
     URL.revokeObjectURL(url);
 }
 // --- TAB 5: SLIDESHOW ANIMAT FOTO + MP3 ---
-let slideFiles = [], slideAudioFile = null;
+let slideFiles = [], slideAudioFile = null, slideAudioDuration = 0;
+
+function updateAutoSlideDuration() {
+    if (slideFiles.length > 0 && slideAudioDuration > 0) {
+        const autoSec = (slideAudioDuration / slideFiles.length).toFixed(1);
+        document.getElementById('slideDuration').value = autoSec;
+    }
+}
 
 document.getElementById('slideImages').addEventListener('change', (e) => {
     slideFiles = Array.from(e.target.files);
     if (slideFiles.length > 0) {
         document.getElementById('slideImagesName').textContent = slideFiles.length + (translations[currentLang].photosSelected || " poze selectate");
+        updateAutoSlideDuration();
     }
 });
 
@@ -315,9 +323,13 @@ document.getElementById('slideAudio').addEventListener('change', (e) => {
     if (e.target.files.length > 0) {
         slideAudioFile = e.target.files.item(0);
         document.getElementById('slideAudioName').textContent = translations[currentLang].selected + slideAudioFile.name;
+        const tempAudio = new Audio(URL.createObjectURL(slideAudioFile));
+        tempAudio.addEventListener('loadedmetadata', () => {
+            slideAudioDuration = tempAudio.duration;
+            updateAutoSlideDuration();
+        });
     }
 });
-
 function resizeImageToJpegBytes(file) {
     return new Promise((resolve) => {
         const img = new Image();
@@ -342,52 +354,62 @@ function resizeImageToJpegBytes(file) {
 document.getElementById('slideBtn').addEventListener('click', async () => {
     if (slideFiles.length === 0) { alert(translations[currentLang].alertFiles); return; }
     const btn = document.getElementById('slideBtn');
-    const secPerPhoto = Math.max(1, parseInt(document.getElementById('slideDuration').value) || 3);
-    const frames = secPerPhoto * 15;
-
+        const secPerPhoto = Math.max(0.5, parseFloat(document.getElementById('slideDuration').value) || 3);
+    const frames = Math.round(secPerPhoto * 15);
     try {
         btn.disabled = true;
-        await ensureFFmpeg();
+        statusBox.textContent = translations[currentLang].loadingEngine;
+        if (!ffmpeg.isLoaded()) await ffmpeg.load();
+        if (eqVisualizer) eqVisualizer.classList.add('active');
+
         const customName = document.getElementById('slideOutputName').value.trim() || `colaj_${Date.now()}`;
         const outName = `${customName}.mp4`;
+        let listContent = "";
 
-        let args = [];
-        let filterParts = [];
-        let concatInputs = "";
-
+        // 1. Procesam fiecare poza PE RAND ca sa nu umplem memoria RAM
         for (let i = 0; i < slideFiles.length; i++) {
+            const pct = Math.round(((i + 1) / (slideFiles.length + 1)) * 100);
+            if (progressFill) progressFill.style.width = pct + '%';
+            statusBox.textContent = `Poza ${i + 1} / ${slideFiles.length} (${pct}%)`;
+
             const imgName = `img_${i}.jpg`;
+            const clipName = `clip_${i}.mp4`;
             const resizedBytes = await resizeImageToJpegBytes(slideFiles[i]);
             ffmpeg.FS('writeFile', imgName, resizedBytes);
-            args.push('-loop', '1', '-t', `${secPerPhoto}`, '-i', imgName);
 
             const zoomExpr = (i % 2 === 0)
                 ? `min(zoom+0.002,1.22)`
                 : `if(eq(on,1),1.22,max(1.0,zoom-0.002))`;
 
-            filterParts.push(
-                `[${i}:v]zoompan=z='${zoomExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1280x720:fps=15[v${i}]`
+            await ffmpeg.run(
+                '-loop', '1', '-t', `${secPerPhoto}`, '-i', imgName,
+                '-vf', `zoompan=z='${zoomExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1280x720:fps=15`,
+                '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', clipName
             );
-            concatInputs += `[v${i}]`;
+
+            ffmpeg.FS('unlink', imgName);
+            listContent += `file '${clipName}'\n`;
         }
-        let filterComplex = filterParts.join(';') + `;${concatInputs}concat=n=${slideFiles.length}:v=1:a=0[outv]`;
+
+        // 2. Lipim clipurile instantaneu si adaugam muzica MP3
+        statusBox.textContent = "Finalizare video & audio (95%)...";
+        if (progressFill) progressFill.style.width = '95%';
+        ffmpeg.FS('writeFile', 'slides_list.txt', listContent);
 
         if (slideAudioFile) {
             ffmpeg.FS('writeFile', 'slide_bg.mp3', new Uint8Array(await slideAudioFile.arrayBuffer()));
-            args.push('-i', 'slide_bg.mp3');
-            args.push('-filter_complex', filterComplex, '-map', '[outv]', '-map', `${slideFiles.length}:a`, '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', outName);
+            await ffmpeg.run('-f', 'concat', '-safe', '0', '-i', 'slides_list.txt', '-i', 'slide_bg.mp3', '-c:v', 'copy', '-c:a', 'aac', '-shortest', outName);
+            ffmpeg.FS('unlink', 'slide_bg.mp3');
         } else {
-            args.push('-filter_complex', filterComplex, '-map', '[outv]', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', outName);
+            await ffmpeg.run('-f', 'concat', '-safe', '0', '-i', 'slides_list.txt', '-c:v', 'copy', outName);
         }
-
-        await ffmpeg.run(...args);
 
         const data = ffmpeg.FS('readFile', outName);
         const blob = new Blob([data], { type: 'video/mp4' });
         await saveOutputFile(blob, outName);
 
-        for (let i = 0; i < slideFiles.length; i++) ffmpeg.FS('unlink', `img_${i}.jpg`);
-        if (slideAudioFile) ffmpeg.FS('unlink', 'slide_bg.mp3');
+        for (let i = 0; i < slideFiles.length; i++) ffmpeg.FS('unlink', `clip_${i}.mp4`);
+        ffmpeg.FS('unlink', 'slides_list.txt');
         ffmpeg.FS('unlink', outName);
         stopVisualProgress(translations[currentLang].done);
     } catch (err) {
