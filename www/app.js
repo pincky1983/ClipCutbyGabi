@@ -365,9 +365,13 @@ document.getElementById('slideBtn').addEventListener('click', async () => {
 
         const customName = document.getElementById('slideOutputName').value.trim() || `colaj_${Date.now()}`;
         const outName = `${customName}.mp4`;
-        let listContent = "";
+                let renderedClips = [];
 
         for (let i = 0; i < slideFiles.length; i++) {
+            if (i > 0 && i % 2 === 0) {
+                try { ffmpeg.exit(); } catch (e) {}
+                await ffmpeg.load();
+            }
             const pct = Math.round(((i + 1) / (slideFiles.length + 1)) * 100);
             if (progressFill) progressFill.style.width = pct + '%';
             statusBox.textContent = `Poza ${i + 1} / ${slideFiles.length} (${pct}%)`;
@@ -376,21 +380,32 @@ document.getElementById('slideBtn').addEventListener('click', async () => {
             const clipName = `clip_${i}.mp4`;
             const resizedBytes = await resizeImageToJpegBytes(slideFiles[i]);
             ffmpeg.FS('writeFile', imgName, resizedBytes);
-                        const zoomExpr = (i % 2 === 0)
+
+            const zoomExpr = (i % 2 === 0)
                 ? `1.0+0.20*on/${frames}`
                 : `1.20-0.20*on/${frames}`;
+
             await ffmpeg.run(
                 '-i', imgName,
                 '-vf', `zoompan=z='${zoomExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1280x720:fps=12`,
                 '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '22', '-pix_fmt', 'yuv420p', clipName
             );
 
+            renderedClips.push(ffmpeg.FS('readFile', clipName));
             ffmpeg.FS('unlink', imgName);
-            listContent += `file '${clipName}'\n`;
+            ffmpeg.FS('unlink', clipName);
         }
 
         statusBox.textContent = "Finalizare video & audio (95%)...";
         if (progressFill) progressFill.style.width = '95%';
+        try { ffmpeg.exit(); } catch (e) {}
+        await ffmpeg.load();
+
+        let listContent = "";
+        for (let i = 0; i < renderedClips.length; i++) {
+            ffmpeg.FS('writeFile', `clip_${i}.mp4`, renderedClips[i]);
+            listContent += `file 'clip_${i}.mp4'\n`;
+        }
         ffmpeg.FS('writeFile', 'slides_list.txt', listContent);
 
         if (slideAudioFile) {
@@ -405,11 +420,10 @@ document.getElementById('slideBtn').addEventListener('click', async () => {
         const blob = new Blob([data], { type: 'video/mp4' });
         await saveOutputFile(blob, outName);
 
-        for (let i = 0; i < slideFiles.length; i++) ffmpeg.FS('unlink', `clip_${i}.mp4`);
+        for (let i = 0; i < renderedClips.length; i++) ffmpeg.FS('unlink', `clip_${i}.mp4`);
         ffmpeg.FS('unlink', 'slides_list.txt');
         ffmpeg.FS('unlink', outName);
         stopVisualProgress(translations[currentLang].done);
-    } catch (err) {
         stopVisualProgress("Eroare slideshow: " + (err.message || err));
     } finally {
         btn.disabled = false;
