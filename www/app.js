@@ -354,8 +354,9 @@ function resizeImageToJpegBytes(file) {
 document.getElementById('slideBtn').addEventListener('click', async () => {
     if (slideFiles.length === 0) { alert(translations[currentLang].alertFiles); return; }
     const btn = document.getElementById('slideBtn');
-        const secPerPhoto = Math.max(0.5, parseFloat(document.getElementById('slideDuration').value) || 3);
-    const frames = Math.round(secPerPhoto * 15);
+    const secPerPhoto = Math.max(0.5, parseFloat(document.getElementById('slideDuration').value) || 3);
+    const frames = Math.round(secPerPhoto * 12);
+
     try {
         btn.disabled = true;
         statusBox.textContent = translations[currentLang].loadingEngine;
@@ -366,7 +367,6 @@ document.getElementById('slideBtn').addEventListener('click', async () => {
         const outName = `${customName}.mp4`;
         let listContent = "";
 
-        // 1. Procesam fiecare poza PE RAND ca sa nu umplem memoria RAM
         for (let i = 0; i < slideFiles.length; i++) {
             const pct = Math.round(((i + 1) / (slideFiles.length + 1)) * 100);
             if (progressFill) progressFill.style.width = pct + '%';
@@ -382,16 +382,15 @@ document.getElementById('slideBtn').addEventListener('click', async () => {
                 : `if(eq(on,1),1.22,max(1.0,zoom-0.002))`;
 
             await ffmpeg.run(
-                '-loop', '1', '-t', `${secPerPhoto}`, '-i', imgName,
-                '-vf', `zoompan=z='${zoomExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1280x720:fps=15`,
-                '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', clipName
+                '-i', imgName,
+                '-vf', `zoompan=z='${zoomExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1280x720:fps=12`,
+                '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '22', '-pix_fmt', 'yuv420p', clipName
             );
 
             ffmpeg.FS('unlink', imgName);
             listContent += `file '${clipName}'\n`;
         }
 
-        // 2. Lipim clipurile instantaneu si adaugam muzica MP3
         statusBox.textContent = "Finalizare video & audio (95%)...";
         if (progressFill) progressFill.style.width = '95%';
         ffmpeg.FS('writeFile', 'slides_list.txt', listContent);
