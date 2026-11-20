@@ -35,6 +35,7 @@ jobs:
                     npm install
                     npx cap add android
                     rm -rf android/app/src/main/res/mipmap-anydpi-v26
+                    sudo apt-get update && sudo apt-get install -y python3-pil
                      python3 -c "from PIL import Image; im=Image.open('www/icon.png').convert('RGBA'); [im.resize((s,s)).save(f'android/app/src/main/res/mipmap-{d}/ic_launcher.png') for d,s in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhdpi',192)]]"
                     sed -i 's/<\/manifest>/<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/><uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"\/><\/manifest>/g' android/app/src/main/AndroidManifest.xml
                       npx cap sync android
