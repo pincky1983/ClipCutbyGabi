@@ -22,23 +22,21 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-      - name: Descarcare FFmpeg 100% Offline in libs
-        run: |
-          rm -rf www/libs
-          mkdir -p www/libs
-          npm install @ffmpeg/ffmpeg@0.11.0 @ffmpeg/core-st@0.11.0 --no-save
-          cp node_modules/@ffmpeg/ffmpeg/dist/ffmpeg.min.js www/libs/
-          cp node_modules/@ffmpeg/core-st/dist/ffmpeg-core.js www/libs/
-          cp node_modules/@ffmpeg/core-st/dist/ffmpeg-core.wasm www/libs/
+
       - name: Instalare dependente si generare Android
         run: |
-                    npm install
-                    npx cap add android
-                    rm -rf android/app/src/main/res/mipmap-anydpi-v26
-                    sudo apt-get update && sudo apt-get install -y python3-pil
-                     python3 -c "from PIL import Image; im=Image.open('www/icon.png').convert('RGBA'); [im.resize((s,s)).save(f'android/app/src/main/res/mipmap-{d}/ic_launcher.png') for d,s in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhdpi',192)]]"
-                    sed -i 's/<\/manifest>/<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/><uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"\/><\/manifest>/g' android/app/src/main/AndroidManifest.xml
-                      npx cap sync android
+          rm -rf www/libs
+          npm install
+          npx cap add android
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26
+          sudo apt-get update && sudo apt-get install -y python3-pil
+          python3 -c "from PIL import Image; im=Image.open('www/icon.png').convert('RGBA'); [im.resize((s,s)).save(f'android/app/src/main/res/mipmap-{d}/ic_launcher.png') for d,s in [('mdpi',48),('hdpi',72),('xhdpi',96),('xxhdpi',144),('xxxhdpi',192)]]"
+          sed -i 's/<\/manifest>/<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/><uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"\/><uses-permission android:name="android.permission.READ_MEDIA_VIDEO"\/><uses-permission android:name="android.permission.READ_MEDIA_AUDIO"\/><uses-permission android:name="android.permission.READ_MEDIA_IMAGES"\/><\/manifest>/g' android/app/src/main/AndroidManifest.xml
+          sed -i '/dependencies {/a \    implementation "androidx.media3:media3-transformer:1.4.1"\n    implementation "androidx.media3:media3-effect:1.4.1"\n    implementation "androidx.media3:media3-common:1.4.1"' android/app/build.gradle
+          mkdir -p android/app/src/main/java/com/gabi/clipcut
+          cp -r native-android/*.java android/app/src/main/java/com/gabi/clipcut/
+          npx cap sync android
+
       - name: Compilare APK
         run: |
           cd android

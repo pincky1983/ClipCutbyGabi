@@ -1,11 +1,5 @@
-const { createFFmpeg } = FFmpeg;
-const baseUrl = window.location.origin;
-const ffmpeg = createFFmpeg({
-    log: true,
-    mainName: 'main',
-    corePath: `${baseUrl}/libs/ffmpeg-core.js`,
-    wasmPath: `${baseUrl}/libs/ffmpeg-core.wasm`
-});
+const { Filesystem, FilePicker } = Capacitor.Plugins;
+const ClipCutNative = Capacitor.Plugins.ClipCutNative;
 
 const statusBox = document.getElementById('statusBox');
 const langSelect = document.getElementById('langSelect');
@@ -16,18 +10,18 @@ let progressTimer = null;
 function startVisualProgress(text) {
     statusBox.textContent = text;
     if (eqVisualizer) eqVisualizer.classList.add('active');
-    let pct = 15;
+    let pct = 20;
     if (progressFill) progressFill.style.width = pct + '%';
     clearInterval(progressTimer);
     progressTimer = setInterval(() => {
-        if (pct < 90) {
-            pct += Math.floor(Math.random() * 6) + 2;
-            if (pct > 90) pct = 90;
+        if (pct < 92) {
+            pct += 4;
             if (progressFill) progressFill.style.width = pct + '%';
             statusBox.textContent = `${text} (${pct}%)`;
         }
-    }, 500);
+    }, 350);
 }
+
 function stopVisualProgress(finalText) {
     clearInterval(progressTimer);
     if (progressFill) progressFill.style.width = '100%';
@@ -37,7 +31,47 @@ function stopVisualProgress(finalText) {
         if (progressFill) progressFill.style.width = '0%';
     }, 2500);
 }
-// --- NAVIGARE TAB-URI ---
+
+function getSubFolder() {
+    const savedFolder = localStorage.getItem('savedFolderName');
+    return savedFolder ? savedFolder.split('/').pop().replace(/[^a-zA-Z0-9_-]/g, '') : 'ClipCut';
+}
+
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(',').pop());
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+async function copyFileToNativeCache(file, tempName) {
+    const base64Data = await blobToBase64(file);
+    const res = await Filesystem.writeFile({
+        path: tempName,
+        data: base64Data,
+        directory: 'CACHE'
+    });
+    return res.uri.replace('file://', '');
+}
+
+async function cleanNativeCache(names) {
+    for (const name of names) {
+        try { await Filesystem.deleteFile({ path: name, directory: 'CACHE' }); } catch (e) {}
+    }
+}
+
+function parseTimeToMs(val) {
+    const str = val.trim();
+    if (!str.includes(':')) return Math.round((parseFloat(str) || 0) * 1000);
+    const parts = str.split(':').map(Number);
+    if (parts.length === 3) return ((parts[0] * 3600) + (parts[1] * 60) + parts[2]) * 1000;
+    if (parts.length === 2) return ((parts[0] * 60) + parts[1]) * 1000;
+    return 0;
+}
+
+// --- NAVIGARE TAB-URI & LIMBA ---
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -46,15 +80,22 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         document.getElementById(btn.getAttribute('data-tab')).classList.add('active');
     });
 });
-// --- SCHIMBARE LIMBA ---
+
 langSelect.addEventListener('change', (e) => {
     updateLanguage(e.target.value);
 });
-async function ensureFFmpeg() {
-    statusBox.textContent = translations[currentLang].loadingEngine;
-    if (!ffmpeg.isLoaded()) await ffmpeg.load();
-    startVisualProgress(translations[currentLang].processing);
-}
+
+document.getElementById('changeFolderBtn').addEventListener('click', async () => {
+    try {
+        const result = await FilePicker.pickDirectory();
+        const decoded = decodeURIComponent(result.path);
+        const folderName = decoded.includes("primary:") ? decoded.split("primary:").pop() : "ClipCut";
+        localStorage.setItem('savedFolderName', folderName);
+        alert("Noua locație memorată: Documents/ClipCut/" + folderName.split('/').pop());
+    } catch (err) {
+        alert("Selecție anulată.");
+    }
+});
 // --- TAB 1: TAIE ---
 const fileInput = document.getElementById('fileInput');
 const fileNameDisplay = document.getElementById('fileName');
@@ -90,41 +131,35 @@ document.getElementById('setEndBtn').addEventListener('click', () => { endTimeIn
 
 cutBtn.addEventListener('click', async () => {
     if (!selectedFile) return;
-    const start = startTimeInput.value.trim();
-    const end = endTimeInput.value.trim();
-    if (!start || !end) { alert(translations[currentLang].alertTime); return; }
+    const startMs = parseTimeToMs(startTimeInput.value);
+    const endMs = parseTimeToMs(endTimeInput.value);
+    if (endMs <= startMs) { alert(translations[currentLang].alertTime); return; }
+
+    const ext = selectedFile.name.split('.').pop().toLowerCase();
+    const outExt = (ext === 'mp3') ? 'm4a' : ext;
+    const tempIn = `temp_cut_in.${ext}`;
 
     try {
         cutBtn.disabled = true;
-        await ensureFFmpeg();
-        const ext = selectedFile.name.split('.').pop().toLowerCase();
-        const inputName = `input.${ext}`;
-        const customName = outputNameInput.value.trim() || `cut_${Date.now()}`;
-        const outputName = `${customName}.${ext}`;
+        startVisualProgress(translations[currentLang].processing);
+        const inputPath = await copyFileToNativeCache(selectedFile, tempIn);
+        const customName = (outputNameInput.value.trim() || `cut_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '_');
+        const outName = `${customName}.${outExt}`;
 
-        const arrayBuffer = await selectedFile.arrayBuffer();
-        ffmpeg.FS('writeFile', inputName, new Uint8Array(arrayBuffer));
+        const res = await ClipCutNative.cutMedia({
+            inputPath, startMs, endMs, outputName: outName, subFolder: getSubFolder()
+        });
 
-        if (ext === 'mp3') {
-            await ffmpeg.run('-ss', start, '-to', end, '-i', inputName, '-c', 'copy', outputName);
-        } else {
-            await ffmpeg.run('-ss', start, '-to', end, '-i', inputName, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23', '-c:a', 'aac', outputName);
-        }
-
-        const data = ffmpeg.FS('readFile', outputName);
-        if (data.byteLength === 0) throw new Error("Fișier gol (0 bytes).");
-        const blob = new Blob([data], { type: ext === 'mp3' ? 'audio/mpeg' : 'video/mp4' });
-
-        await saveOutputFile(blob, outputName);
-        ffmpeg.FS('unlink', inputName);
-        ffmpeg.FS('unlink', outputName);
-       stopVisualProgress(translations[currentLang].done);
+        stopVisualProgress(translations[currentLang].done);
+        alert(`✅ Salvat nativ în:\n${res.path}`);
     } catch (err) {
-        statusBox.textContent = "Eroare: " + (err.message || err);
+        stopVisualProgress("Eroare: " + (err.message || err));
     } finally {
+        await cleanNativeCache([tempIn]);
         cutBtn.disabled = false;
     }
 });
+
 // --- TAB 2: LIPESTE ---
 let mergeFile1 = null, mergeFile2 = null;
 document.getElementById('mergeFile1').addEventListener('change', (e) => {
@@ -143,34 +178,32 @@ document.getElementById('mergeFile2').addEventListener('change', (e) => {
 document.getElementById('mergeBtn').addEventListener('click', async () => {
     if (!mergeFile1 || !mergeFile2) { alert(translations[currentLang].alertFiles); return; }
     const btn = document.getElementById('mergeBtn');
+    const ext = mergeFile1.name.split('.').pop().toLowerCase();
+    const outExt = (ext === 'mp3') ? 'm4a' : ext;
+    const t1 = `temp_m1.${ext}`, t2 = `temp_m2.${ext}`;
+
     try {
         btn.disabled = true;
-        await ensureFFmpeg();
-        const ext = mergeFile1.name.split('.').pop().toLowerCase();
-        const in1 = `part1.${ext}`, in2 = `part2.${ext}`;
-        const customName = document.getElementById('mergeOutputName').value.trim() || `unit_${Date.now()}`;
-        const outName = `${customName}.${ext}`;
+        startVisualProgress(translations[currentLang].processing);
+        const path1 = await copyFileToNativeCache(mergeFile1, t1);
+        const path2 = await copyFileToNativeCache(mergeFile2, t2);
+        const customName = (document.getElementById('mergeOutputName').value.trim() || `unit_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '_');
+        const outName = `${customName}.${outExt}`;
 
-        ffmpeg.FS('writeFile', in1, new Uint8Array(await mergeFile1.arrayBuffer()));
-        ffmpeg.FS('writeFile', in2, new Uint8Array(await mergeFile2.arrayBuffer()));
-        ffmpeg.FS('writeFile', 'list.txt', `file '${in1}'\nfile '${in2}'`);
+        const res = await ClipCutNative.mergeMedia({
+            path1, path2, outputName: outName, subFolder: getSubFolder()
+        });
 
-        await ffmpeg.run('-f', 'concat', '-safe', '0', '-i', 'list.txt', '-c', 'copy', outName);
-
-        const data = ffmpeg.FS('readFile', outName);
-        const blob = new Blob([data], { type: ext === 'mp3' ? 'audio/mpeg' : 'video/mp4' });
-        await saveOutputFile(blob, outName);
-
-        ffmpeg.FS('unlink', in1); ffmpeg.FS('unlink', in2); ffmpeg.FS('unlink', 'list.txt'); ffmpeg.FS('unlink', outName);
         stopVisualProgress(translations[currentLang].done);
+        alert(`✅ Salvat nativ în:\n${res.path}`);
     } catch (err) {
-        statusBox.textContent = "Eroare lipire: " + (err.message || err);
+        stopVisualProgress("Eroare lipire: " + (err.message || err));
     } finally {
+        await cleanNativeCache([t1, t2]);
         btn.disabled = false;
     }
 });
-
-// --- TAB 3: EXTRAGE MP3 ---
+// --- TAB 3: EXTRAGE AUDIO ---
 let extractFile = null;
 document.getElementById('extractFile').addEventListener('change', (e) => {
     if (e.target.files.length > 0) {
@@ -183,27 +216,29 @@ document.getElementById('extractFile').addEventListener('change', (e) => {
 document.getElementById('extractBtn').addEventListener('click', async () => {
     if (!extractFile) { alert(translations[currentLang].alertFiles); return; }
     const btn = document.getElementById('extractBtn');
+    const tempIn = 'temp_ext_in.mp4';
+
     try {
         btn.disabled = true;
-        await ensureFFmpeg();
-        const customName = document.getElementById('extractOutputName').value.trim() || `audio_${Date.now()}`;
-        const outName = `${customName}.mp3`;
+        startVisualProgress(translations[currentLang].processing);
+        const inputPath = await copyFileToNativeCache(extractFile, tempIn);
+        const customName = (document.getElementById('extractOutputName').value.trim() || `audio_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '_');
+        const outName = `${customName}.m4a`;
 
-        ffmpeg.FS('writeFile', 'vid_in.mp4', new Uint8Array(await extractFile.arrayBuffer()));
-        await ffmpeg.run('-i', 'vid_in.mp4', '-vn', '-acodec', 'libmp3lame', '-q:a', '2', outName);
+        const res = await ClipCutNative.extractAudio({
+            inputPath, outputName: outName, subFolder: getSubFolder()
+        });
 
-        const data = ffmpeg.FS('readFile', outName);
-        const blob = new Blob([data], { type: 'audio/mpeg' });
-        await saveOutputFile(blob, outName);
-
-        ffmpeg.FS('unlink', 'vid_in.mp4'); ffmpeg.FS('unlink', outName);
         stopVisualProgress(translations[currentLang].done);
+        alert(`✅ Salvat nativ în:\n${res.path}`);
     } catch (err) {
-        statusBox.textContent = "Eroare extragere MP3: " + (err.message || err);
+        stopVisualProgress("Eroare extragere: " + (err.message || err));
     } finally {
+        await cleanNativeCache([tempIn]);
         btn.disabled = false;
     }
 });
+
 // --- TAB 4: VIDEO + AUDIO ---
 let muxVideo = null, muxAudio = null;
 document.getElementById('muxVideoFile').addEventListener('change', (e) => {
@@ -222,86 +257,32 @@ document.getElementById('muxAudioFile').addEventListener('change', (e) => {
 document.getElementById('muxBtn').addEventListener('click', async () => {
     if (!muxVideo || !muxAudio) { alert(translations[currentLang].alertFiles); return; }
     const btn = document.getElementById('muxBtn');
+    const aExt = muxAudio.name.split('.').pop().toLowerCase();
+    const tVid = 'temp_mux_v.mp4', tAud = `temp_mux_a.${aExt}`;
+
     try {
         btn.disabled = true;
-        await ensureFFmpeg();
-        const customName = document.getElementById('muxOutputName').value.trim() || `video_nou_${Date.now()}`;
+        startVisualProgress(translations[currentLang].processing);
+        const videoPath = await copyFileToNativeCache(muxVideo, tVid);
+        const audioPath = await copyFileToNativeCache(muxAudio, tAud);
+        const customName = (document.getElementById('muxOutputName').value.trim() || `video_nou_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '_');
         const outName = `${customName}.mp4`;
 
-        ffmpeg.FS('writeFile', 'v_in.mp4', new Uint8Array(await muxVideo.arrayBuffer()));
-        ffmpeg.FS('writeFile', 'a_in.mp3', new Uint8Array(await muxAudio.arrayBuffer()));
-        await ffmpeg.run('-i', 'v_in.mp4', '-i', 'a_in.mp3', '-c:v', 'copy', '-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0', '-shortest', outName);
+        const res = await ClipCutNative.muxVideoAudio({
+            videoPath, audioPath, outputName: outName, subFolder: getSubFolder()
+        });
 
-        const data = ffmpeg.FS('readFile', outName);
-        const blob = new Blob([data], { type: 'video/mp4' });
-        await saveOutputFile(blob, outName);
-
-        ffmpeg.FS('unlink', 'v_in.mp4'); ffmpeg.FS('unlink', 'a_in.mp3'); ffmpeg.FS('unlink', outName);
         stopVisualProgress(translations[currentLang].done);
+        alert(`✅ Salvat nativ în:\n${res.path}`);
     } catch (err) {
-        statusBox.textContent = "Eroare combinare: " + (err.message || err);
+        stopVisualProgress("Eroare combinare: " + (err.message || err));
     } finally {
+        await cleanNativeCache([tVid, tAud]);
         btn.disabled = false;
     }
 });
 
-// --- SALVARE FISIER & FOLDER ---
-function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result.split(',').pop());
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
-
-document.getElementById('changeFolderBtn').addEventListener('click', async () => {
-    try {
-        const { FilePicker } = Capacitor.Plugins;
-        const result = await FilePicker.pickDirectory();
-        const decoded = decodeURIComponent(result.path);
-        const folderName = decoded.includes("primary:") ? decoded.split("primary:").pop() : "ClipCut";
-        localStorage.setItem('savedFolderName', folderName);
-        alert("Noua locație memorată: Documents/ClipCut/" + folderName.split('/').pop());
-    } catch (err) {
-        alert("Selecție anulată.");
-    }
-});
-
-async function saveOutputFile(blob, fileName) {
-    if (window.Capacitor && window.Capacitor.isNativePlatform()) {
-        try {
-            const { Filesystem } = Capacitor.Plugins;
-            const base64Data = await blobToBase64(blob);
-            const cleanName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-            const savedFolder = localStorage.getItem('savedFolderName');
-            const subFolder = savedFolder ? savedFolder.split('/').pop().replace(/[^a-zA-Z0-9_-]/g, '') : 'ClipCut';
-            const finalPath = subFolder ? `ClipCut/${subFolder}/${cleanName}` : `ClipCut/${cleanName}`;
-
-            await Filesystem.writeFile({
-                path: finalPath,
-                data: base64Data,
-                directory: 'DOCUMENTS',
-                recursive: true
-            });
-
-            alert(`✅ Salvat cu succes în:\nDocuments/${finalPath}`);
-            return;
-        } catch (err) {
-            alert("Eroare salvare: " + (err.message || err));
-            return;
-        }
-    }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-// --- TAB 5: SLIDESHOW ANIMAT FOTO + MP3 ---
+// --- TAB 5: SLIDESHOW NATIV FOTO + MUZICA ---
 let slideFiles = [], slideAudioFile = null, slideAudioDuration = 0;
 
 function updateAutoSlideDuration() {
@@ -330,106 +311,48 @@ document.getElementById('slideAudio').addEventListener('change', (e) => {
         });
     }
 });
-function resizeImageToJpegBytes(file) {
-    return new Promise((resolve) => {
-        const img = new Image();
-        const objectUrl = URL.createObjectURL(file);
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1280;
-            canvas.height = 720;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, 1280, 720);
-            const scale = Math.min(1280 / img.width, 720 / img.height);
-            const w = img.width * scale;
-            const h = img.height * scale;
-            ctx.drawImage(img, (1280 - w) / 2, (720 - h) / 2, w, h);
-            URL.revokeObjectURL(objectUrl);
-            canvas.toBlob(async (blob) => {
-                resolve(new Uint8Array(await blob.arrayBuffer()));
-            }, 'image/jpeg', 0.88);
-        };
-        img.src = objectUrl;
-    });
-}
 
 document.getElementById('slideBtn').addEventListener('click', async () => {
     if (slideFiles.length === 0) { alert(translations[currentLang].alertFiles); return; }
     const btn = document.getElementById('slideBtn');
     const secPerPhoto = Math.max(1, parseFloat(document.getElementById('slideDuration').value) || 3);
-    const frames = Math.round(secPerPhoto * 12);
+    const durationPerPhotoMs = Math.round(secPerPhoto * 1000);
+    let tempNames = [];
 
     try {
         btn.disabled = true;
-        statusBox.textContent = translations[currentLang].loadingEngine;
-        if (!ffmpeg.isLoaded()) await ffmpeg.load();
-        if (eqVisualizer) eqVisualizer.classList.add('active');
-
-        const customName = document.getElementById('slideOutputName').value.trim() || `colaj_${Date.now()}`;
-        const outName = `${customName}.mp4`;
-        let renderedClips = [];
+        startVisualProgress(translations[currentLang].processing);
+        let imagePaths = [];
 
         for (let i = 0; i < slideFiles.length; i++) {
-            const pct = Math.round(((i + 1) / (slideFiles.length + 1)) * 100);
-            if (progressFill) progressFill.style.width = pct + '%';
-            statusBox.textContent = `Poza ${i + 1} / ${slideFiles.length} (${pct}%)`;
-
-            const imgName = `img_${i}.jpg`;
-            const clipName = `clip_${i}.mp4`;
-            const resizedBytes = await resizeImageToJpegBytes(slideFiles[i]);
-            ffmpeg.FS('writeFile', imgName, resizedBytes);
-
-            const zoomExpr = (i % 2 === 0)
-                ? `min(1.20,1.0+0.20*on/${frames})`
-                : `max(1.001,1.20-0.20*on/${frames})`;
-
-            await ffmpeg.run(
-                '-i', imgName,
-                '-vf', `zoompan=z='${zoomExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1280x720:fps=12`,
-                '-t', secPerPhoto.toFixed(2),
-                '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '24', '-pix_fmt', 'yuv420p',
-                clipName
-            );
-
-            renderedClips.push(ffmpeg.FS('readFile', clipName));
-            try { ffmpeg.FS('unlink', imgName); } catch (e) {}
-            try { ffmpeg.FS('unlink', clipName); } catch (e) {}
-
-            await new Promise(r => setTimeout(r, 150));
+            const ext = slideFiles[i].name.split('.').pop().toLowerCase() || 'jpg';
+            const tName = `temp_slide_${i}.${ext}`;
+            tempNames.push(tName);
+            const path = await copyFileToNativeCache(slideFiles[i], tName);
+            imagePaths.push(path);
         }
-        statusBox.textContent = "Finalizare video & audio (95%)...";
-        if (progressFill) progressFill.style.width = '95%';
 
-        let listContent = "";
-        for (let i = 0; i < renderedClips.length; i++) {
-            ffmpeg.FS('writeFile', `clip_${i}.mp4`, renderedClips[i]);
-            listContent += `file 'clip_${i}.mp4'\n`;
-        }
-        ffmpeg.FS('writeFile', 'slides_list.txt', listContent);
-
+        let audioPath = "";
         if (slideAudioFile) {
-            ffmpeg.FS('writeFile', 'slide_bg.mp3', new Uint8Array(await slideAudioFile.arrayBuffer()));
-            await ffmpeg.run('-f', 'concat', '-safe', '0', '-i', 'slides_list.txt', '-i', 'slide_bg.mp3', '-c:v', 'copy', '-c:a', 'aac', '-shortest', outName);
-            try { ffmpeg.FS('unlink', 'slide_bg.mp3'); } catch (e) {}
-        } else {
-            await ffmpeg.run('-f', 'concat', '-safe', '0', '-i', 'slides_list.txt', '-c:v', 'copy', outName);
+            const aExt = slideAudioFile.name.split('.').pop().toLowerCase() || 'mp3';
+            const tAudio = `temp_slide_audio.${aExt}`;
+            tempNames.push(tAudio);
+            audioPath = await copyFileToNativeCache(slideAudioFile, tAudio);
         }
 
-        const data = ffmpeg.FS('readFile', outName);
-        const blob = new Blob([data], { type: 'video/mp4' });
-        await saveOutputFile(blob, outName);
+        const customName = (document.getElementById('slideOutputName').value.trim() || `colaj_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '_');
+        const outName = `${customName}.mp4`;
 
-        for (let i = 0; i < renderedClips.length; i++) {
-            try { ffmpeg.FS('unlink', `clip_${i}.mp4`); } catch (e) {}
-        }
-        try { ffmpeg.FS('unlink', 'slides_list.txt'); } catch (e) {}
-        try { ffmpeg.FS('unlink', outName); } catch (e) {}
+        const res = await ClipCutNative.createSlideshow({
+            imagePaths, audioPath, durationPerPhotoMs, outputName: outName, subFolder: getSubFolder()
+        });
 
         stopVisualProgress(translations[currentLang].done);
+        alert(`✅ Slideshow salvat nativ în:\n${res.path}`);
     } catch (err) {
         stopVisualProgress("Eroare slideshow: " + (err.message || err));
     } finally {
+        await cleanNativeCache(tempNames);
         btn.disabled = false;
     }
 });
