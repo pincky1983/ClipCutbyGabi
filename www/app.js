@@ -356,3 +356,136 @@ document.getElementById('slideBtn').addEventListener('click', async () => {
         btn.disabled = false;
     }
 });
+// --- TAB 6: KARAOKE VERSURI SINCRONIZATE ---
+let karaokeAudioFile = null, karaokeBgFile = null, karaokeTotalMs = 0;
+const karaokePlayer = document.getElementById('karaokePlayer');
+const karaokeLyricsArea = document.getElementById('karaokeLyrics');
+
+document.getElementById('karaokeAudio').addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        karaokeAudioFile = e.target.files.item(0);
+        document.getElementById('karaokeAudioName').textContent = translations[currentLang].selected + karaokeAudioFile.name;
+        karaokePlayer.src = URL.createObjectURL(karaokeAudioFile);
+        karaokePlayer.style.display = 'block';
+        karaokePlayer.onloadedmetadata = () => {
+            karaokeTotalMs = Math.round(karaokePlayer.duration * 1000);
+        };
+    }
+});
+
+document.getElementById('karaokeBg').addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        karaokeBgFile = e.target.files.item(0);
+        document.getElementById('karaokeBgName').textContent = translations[currentLang].selected + karaokeBgFile.name;
+    }
+});
+
+document.getElementById('karaokeTapBtn').addEventListener('click', () => {
+    if (!karaokeAudioFile) { alert(translations[currentLang].alertFiles); return; }
+    karaokePlayer.pause();
+    const curSec = karaokePlayer.currentTime;
+    const m = Math.floor(curSec / 60).toString().padStart(2, '0');
+    const s = Math.floor(curSec % 60).toString().padStart(2, '0');
+    const stamp = `${m}:${s} `;
+    const val = karaokeLyricsArea.value;
+    const prefix = (val.length > 0 && !val.endsWith('\n')) ? '\n' : '';
+    karaokeLyricsArea.value = val + prefix + stamp;
+    karaokeLyricsArea.focus();
+});
+
+function parseSmartLyrics(rawText, totalDurationMs) {
+    const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    let sections = [], currentSec = { type: 'STROFA', items: [], pauseAfterMs: 0 };
+
+    for (const line of lines) {
+        const upper = line.toUpperCase();
+        if (upper.startsWith('[STROFA')) {
+            if (currentSec.items.length > 0) sections.push(currentSec);
+            currentSec = { type: 'STROFA', items: [], pauseAfterMs: 0 };
+        } else if (upper.startsWith('[REFREN')) {
+            if (currentSec.items.length > 0) sections.push(currentSec);
+            currentSec = { type: 'REFREN', items: [], pauseAfterMs: 0 };
+        } else if (upper.startsWith('[PAUZA')) {
+            const sec = parseFloat(upper.replace(/[^0-9.]/g, '')) || 3;
+            currentSec.pauseAfterMs += Math.round(sec * 1000);
+        } else {
+            const match = line.match(/^(\d{1,2}:\d{2}(?::\d{2})?)\s+(.+)$/);
+            if (match) {
+                currentSec.items.push({ startMs: parseTimeToMs(match.at(1)), text: match.at(2) });
+            } else {
+                currentSec.items.push({ startMs: null, text: line });
+            }
+        }
+    }
+    if (currentSec.items.length > 0) sections.push(currentSec);
+
+    let templates = {}, result = [], cursorMs = 0;
+    for (const sec of sections) {
+        const hasTimes = sec.items.some(it => it.startMs !== null);
+        if (hasTimes) {
+            let durations = [];
+            for (let i = 0; i < sec.items.length; i++) {
+                const st = sec.items[i].startMs !== null ? sec.items[i].startMs : cursorMs;
+                const nextSt = (i + 1 < sec.items.length && sec.items[i + 1].startMs !== null)
+                    ? sec.items[i + 1].startMs : st + 3500;
+                const dur = Math.max(1000, nextSt - st);
+                durations.push(dur);
+                result.push({ startMs: st, endMs: st + dur, text: sec.items[i].text });
+                cursorMs = st + dur;
+            }
+            templates[sec.type] = durations;
+        } else {
+            const tpl = templates[sec.type] || [];
+            for (let i = 0; i < sec.items.length; i++) {
+                const dur = tpl[i] || tpl[tpl.length - 1] || 3500;
+                if (cursorMs + 500 >= totalDurationMs) break;
+                const endMs = Math.min(totalDurationMs, cursorMs + dur);
+                result.push({ startMs: cursorMs, endMs, text: sec.items[i].text });
+                cursorMs = endMs;
+            }
+        }
+        cursorMs += sec.pauseAfterMs;
+    }
+    return result;
+}
+
+document.getElementById('karaokeBtn').addEventListener('click', async () => {
+    if (!karaokeAudioFile) { alert(translations[currentLang].alertFiles); return; }
+    const rawLyrics = karaokeLyricsArea.value.trim();
+    if (!rawLyrics) { alert("Introdu versurile mai întâi!"); return; }
+
+    const btn = document.getElementById('karaokeBtn');
+    const aExt = karaokeAudioFile.name.split('.').pop().toLowerCase() || 'mp3';
+    const tAudio = `temp_kar_a.${aExt}`;
+    let tempNames = [tAudio], bgPath = "";
+
+    try {
+        btn.disabled = true;
+        startVisualProgress(translations[currentLang].processing);
+        const audioPath = await copyFileToNativeCache(karaokeAudioFile, tAudio);
+
+        if (karaokeBgFile) {
+            const bExt = karaokeBgFile.name.split('.').pop().toLowerCase() || 'jpg';
+            const tBg = `temp_kar_bg.${bExt}`;
+            tempNames.push(tBg);
+            bgPath = await copyFileToNativeCache(karaokeBgFile, tBg);
+        }
+
+        const totalDurationMs = karaokeTotalMs > 0 ? karaokeTotalMs : 30000;
+        const parsedLyrics = parseSmartLyrics(rawLyrics, totalDurationMs);
+        const customName = (document.getElementById('karaokeOutputName').value.trim() || `karaoke_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '_');
+        const outName = `${customName}.mp4`;
+
+        const res = await ClipCutNative.createKaraoke({
+            audioPath, bgPath, totalDurationMs, lyrics: parsedLyrics, outputName: outName, subFolder: getSubFolder()
+        });
+
+        stopVisualProgress(translations[currentLang].done);
+        alert(`✅ Video Karaoke salvat nativ în:\n${res.path}`);
+    } catch (err) {
+        stopVisualProgress("Eroare karaoke: " + (err.message || err));
+    } finally {
+        await cleanNativeCache(tempNames);
+        btn.disabled = false;
+    }
+});

@@ -22,8 +22,8 @@
             <button type="button" class="tab-btn" data-tab="tabExtract" data-i18n="tabExtract">🎵 MP3</button>
             <button type="button" class="tab-btn" data-tab="tabMux" data-i18n="tabMux">🎬 V+A</button>
                         <button type="button" class="tab-btn" data-tab="tabSlide" data-i18n="tabSlide">🖼️ Slide</button>
+                        <button type="button" class="tab-btn" data-tab="tabKaraoke" data-i18n="tabKaraoke">🎤 Karaoke</button>
         </div>
-
         <!-- TAB 1: TAIE -->
         <div id="tabCut" class="tab-panel active">
             <div class="card">
@@ -122,6 +122,31 @@
             </div>
             <button id="slideBtn" style="width:100%; padding:16px; background:linear-gradient(135deg,#238636,#2ea043); color:#fff; border:none; border-radius:14px; font-size:16px; font-weight:700;" data-i18n="slideSave">🖼️ Creează Video Animat</button>
         </div>
+                <!-- TAB 6: KARAOKE VERSURI SINCRONIZATE -->
+        <div id="tabKaraoke" class="tab-panel">
+            <div class="card">
+                <label for="karaokeAudio" class="btn-upload" data-i18n="chooseKaraokeAudio">1. Alege Melodia (MP3 / M4A)</label>
+                <input type="file" id="karaokeAudio" accept="audio/*,.mp3,.m4a">
+                <p id="karaokeAudioName" style="text-align:center; font-size:13px; color:#8b949e; margin-top:8px;" data-i18n="noFile">Niciun fișier selectat</p>
+                <audio id="karaokePlayer" controls style="width:100%; margin-top:12px; display:none;"></audio>
+            </div>
+            <div class="card">
+                <label for="karaokeBg" class="btn-upload" style="background:linear-gradient(135deg,#21262d,#30363d); box-shadow:none; border:1px solid rgba(255,255,255,0.15);" data-i18n="chooseKaraokeBg">2. Poză Fundal (opțional)</label>
+                <input type="file" id="karaokeBg" accept="image/*">
+                <p id="karaokeBgName" style="text-align:center; font-size:13px; color:#8b949e; margin-top:8px;" data-i18n="defaultBg">Fundal negru implicit</p>
+            </div>
+            <div class="card">
+                <label data-i18n="karaokeLyricsLabel">3. Versuri ([STROFA] / [REFREN])</label>
+                <button type="button" id="karaokeTapBtn" style="width:100%; padding:12px; margin-bottom:10px; background:linear-gradient(135deg,#d97706,#f59e0b); color:#fff; border:none; border-radius:10px; font-size:14px; font-weight:700;" data-i18n="tapPauseTime">⏸️ Oprește Melodia & Inserează Timp</button>
+                <textarea id="karaokeLyrics" rows="8" placeholder="[STROFA]&#10;00:05 Primul vers&#10;00:09 Al doilea vers&#10;&#10;[REFREN]&#10;00:14 Refren vers 1&#10;00:18 Refren vers 2&#10;&#10;[STROFA]&#10;Vers strofa 2 (fara timp)&#10;Al doilea vers (fara timp)" style="width:100%; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,0.12); background:#0d1117; color:#f0f6fc; font-size:14px; line-height:1.5; resize:vertical;"></textarea>
+            </div>
+            <div class="card">
+                <label data-i18n="outputNameLabel">Nume fișier nou (fără extensie)</label>
+                <input type="text" id="karaokeOutputName" value="karaoke_video">
+            </div>
+            <button id="karaokeBtn" style="width:100%; padding:16px; background:linear-gradient(135deg,#238636,#2ea043); color:#fff; border:none; border-radius:14px; font-size:16px; font-weight:700;" data-i18n="karaokeSave">🎤 Creează Video Karaoke</button>
+        </div>
+
         <button type="button" id="changeFolderBtn" class="btn-small" style="width:100%; margin-top:10px; padding:12px;" data-i18n="changeFolder">
             📁 Schimbă folderul de salvare
         </button>

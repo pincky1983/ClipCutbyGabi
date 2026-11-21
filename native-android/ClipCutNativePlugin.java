@@ -6,6 +6,18 @@ import androidx.annotation.OptIn;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.RelativeSizeSpan;
+import androidx.media3.effect.BitmapOverlay;
+import androidx.media3.effect.OverlayEffect;
+import androidx.media3.effect.TextOverlay;
+import java.io.FileOutputStream;
+
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
@@ -207,4 +219,94 @@ public class ClipCutNativePlugin extends Plugin {
             call.reject("Eroare pregatire slideshow: " + e.getMessage());
         }
     }
+        // TAB 6: KARAOKE NATIV CU VERSURI SINCRONIZATE
+    @PluginMethod
+    public void createKaraoke(PluginCall call) {
+        try {
+            String audioPath = call.getString("audioPath");
+            String bgPath = call.getString("bgPath");
+            long totalDurationMs = call.getLong("totalDurationMs", 10000L);
+            JSArray lyricsArr = call.getArray("lyrics");
+            String outName = call.getString("outputName");
+            String subFolder = call.getString("subFolder");
+
+            File outFile = prepareOutputFile(subFolder, outName);
+
+            // Dacă nu există poză de fundal, creăm una neagră 1280x720 în cache
+            if (bgPath == null || bgPath.isEmpty()) {
+                File blackBg = new File(getContext().getCacheDir(), "karaoke_black_bg.jpg");
+                Bitmap bmp = Bitmap.createBitmap(1280, 720, Bitmap.Config.ARGB_8888);
+                Canvas canvas = new Canvas(bmp);
+                canvas.drawColor(Color.BLACK);
+                try (FileOutputStream fos = new FileOutputStream(blackBg)) {
+                    bmp.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+                }
+                bmp.recycle();
+                bgPath = blackBg.getAbsolutePath();
+            }
+
+            List<EditedMediaItem> videoItems = new ArrayList<>();
+            long cursorMs = 0L;
+
+            for (int i = 0; i < lyricsArr.length(); i++) {
+                org.json.JSONObject line = lyricsArr.getJSONObject(i);
+                long startMs = line.getLong("startMs");
+                long endMs = line.getLong("endMs");
+                String text = line.getString("text");
+
+                // Segment fără versuri (pauză) înainte de vers
+                if (startMs > cursorMs) {
+                    MediaItem pauseItem = new MediaItem.Builder()
+                        .setUri(Uri.fromFile(new File(bgPath)))
+                        .setImageDurationMs(startMs - cursorMs)
+                        .build();
+                    videoItems.add(new EditedMediaItem.Builder(pauseItem).setFrameRate(24).build());
+                }
+
+                // Segment cu versul afișat pe ecran
+                long lineDur = Math.max(500L, endMs - startMs);
+                MediaItem textItem = new MediaItem.Builder()
+                    .setUri(Uri.fromFile(new File(bgPath)))
+                    .setImageDurationMs(lineDur)
+                    .build();
+
+                SpannableString spanText = new SpannableString(text);
+                spanText.setSpan(new ForegroundColorSpan(Color.WHITE), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                spanText.setSpan(new RelativeSizeSpan(1.4f), 0, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+                TextOverlay overlay = TextOverlay.createStaticTextOverlay(spanText);
+                OverlayEffect effect = new OverlayEffect(Collections.singletonList(overlay));
+
+                videoItems.add(new EditedMediaItem.Builder(textItem)
+                    .setFrameRate(24)
+                    .setEffects(new Effects(Collections.emptyList(), Collections.singletonList(effect)))
+                    .build());
+
+                cursorMs = startMs + lineDur;
+            }
+
+            // Completăm cu fundal până la finalul melodiei
+            if (totalDurationMs > cursorMs) {
+                MediaItem endItem = new MediaItem.Builder()
+                    .setUri(Uri.fromFile(new File(bgPath)))
+                    .setImageDurationMs(totalDurationMs - cursorMs)
+                    .build();
+                videoItems.add(new EditedMediaItem.Builder(endItem).setFrameRate(24).build());
+            }
+
+            EditedMediaItem editedAudio = new EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(new File(audioPath))))
+                .setRemoveVideo(true)
+                .build();
+
+            List<EditedMediaItemSequence> sequences = new ArrayList<>();
+            sequences.add(new EditedMediaItemSequence(videoItems));
+            sequences.add(new EditedMediaItemSequence(Collections.singletonList(editedAudio)));
+
+            Composition composition = new Composition.Builder(sequences).build();
+            runTransformer(composition, outFile, call);
+        } catch (Exception e) {
+            call.reject("Eroare karaoke: " + e.getMessage());
+        }
+    }
+
 }
