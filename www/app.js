@@ -333,6 +333,7 @@ document.getElementById('slideAudio').addEventListener('change', (e) => {
 function resizeImageToJpegBytes(file) {
     return new Promise((resolve) => {
         const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
         img.onload = () => {
             const canvas = document.createElement('canvas');
             canvas.width = 1280;
@@ -344,17 +345,19 @@ function resizeImageToJpegBytes(file) {
             const w = img.width * scale;
             const h = img.height * scale;
             ctx.drawImage(img, (1280 - w) / 2, (720 - h) / 2, w, h);
-                        canvas.toBlob(async (blob) => {
+            URL.revokeObjectURL(objectUrl);
+            canvas.toBlob(async (blob) => {
                 resolve(new Uint8Array(await blob.arrayBuffer()));
-            }, 'image/jpeg', 0.92);
+            }, 'image/jpeg', 0.88);
         };
-        img.src = URL.createObjectURL(file);
+        img.src = objectUrl;
     });
 }
+
 document.getElementById('slideBtn').addEventListener('click', async () => {
     if (slideFiles.length === 0) { alert(translations[currentLang].alertFiles); return; }
     const btn = document.getElementById('slideBtn');
-    const secPerPhoto = Math.max(0.5, parseFloat(document.getElementById('slideDuration').value) || 3);
+    const secPerPhoto = Math.max(1, parseFloat(document.getElementById('slideDuration').value) || 3);
     const frames = Math.round(secPerPhoto * 12);
 
     try {
@@ -365,13 +368,9 @@ document.getElementById('slideBtn').addEventListener('click', async () => {
 
         const customName = document.getElementById('slideOutputName').value.trim() || `colaj_${Date.now()}`;
         const outName = `${customName}.mp4`;
-                let renderedClips = [];
+        let renderedClips = [];
 
         for (let i = 0; i < slideFiles.length; i++) {
-            if (i > 0 && i % 2 === 0) {
-                try { ffmpeg.exit(); } catch (e) {}
-                await ffmpeg.load();
-            }
             const pct = Math.round(((i + 1) / (slideFiles.length + 1)) * 100);
             if (progressFill) progressFill.style.width = pct + '%';
             statusBox.textContent = `Poza ${i + 1} / ${slideFiles.length} (${pct}%)`;
@@ -382,24 +381,25 @@ document.getElementById('slideBtn').addEventListener('click', async () => {
             ffmpeg.FS('writeFile', imgName, resizedBytes);
 
             const zoomExpr = (i % 2 === 0)
-                ? `1.0+0.20*on/${frames}`
-                : `1.20-0.20*on/${frames}`;
+                ? `min(1.20,1.0+0.20*on/${frames})`
+                : `max(1.001,1.20-0.20*on/${frames})`;
 
             await ffmpeg.run(
                 '-i', imgName,
                 '-vf', `zoompan=z='${zoomExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1280x720:fps=12`,
-                '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '22', '-pix_fmt', 'yuv420p', clipName
+                '-t', secPerPhoto.toFixed(2),
+                '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '24', '-pix_fmt', 'yuv420p',
+                clipName
             );
 
             renderedClips.push(ffmpeg.FS('readFile', clipName));
-            ffmpeg.FS('unlink', imgName);
-            ffmpeg.FS('unlink', clipName);
-        }
+            try { ffmpeg.FS('unlink', imgName); } catch (e) {}
+            try { ffmpeg.FS('unlink', clipName); } catch (e) {}
 
+            await new Promise(r => setTimeout(r, 150));
+        }
         statusBox.textContent = "Finalizare video & audio (95%)...";
         if (progressFill) progressFill.style.width = '95%';
-        try { ffmpeg.exit(); } catch (e) {}
-        await ffmpeg.load();
 
         let listContent = "";
         for (let i = 0; i < renderedClips.length; i++) {
@@ -411,7 +411,7 @@ document.getElementById('slideBtn').addEventListener('click', async () => {
         if (slideAudioFile) {
             ffmpeg.FS('writeFile', 'slide_bg.mp3', new Uint8Array(await slideAudioFile.arrayBuffer()));
             await ffmpeg.run('-f', 'concat', '-safe', '0', '-i', 'slides_list.txt', '-i', 'slide_bg.mp3', '-c:v', 'copy', '-c:a', 'aac', '-shortest', outName);
-            ffmpeg.FS('unlink', 'slide_bg.mp3');
+            try { ffmpeg.FS('unlink', 'slide_bg.mp3'); } catch (e) {}
         } else {
             await ffmpeg.run('-f', 'concat', '-safe', '0', '-i', 'slides_list.txt', '-c:v', 'copy', outName);
         }
@@ -420,10 +420,14 @@ document.getElementById('slideBtn').addEventListener('click', async () => {
         const blob = new Blob([data], { type: 'video/mp4' });
         await saveOutputFile(blob, outName);
 
-        for (let i = 0; i < renderedClips.length; i++) ffmpeg.FS('unlink', `clip_${i}.mp4`);
-        ffmpeg.FS('unlink', 'slides_list.txt');
-        ffmpeg.FS('unlink', outName);
+        for (let i = 0; i < renderedClips.length; i++) {
+            try { ffmpeg.FS('unlink', `clip_${i}.mp4`); } catch (e) {}
+        }
+        try { ffmpeg.FS('unlink', 'slides_list.txt'); } catch (e) {}
+        try { ffmpeg.FS('unlink', outName); } catch (e) {}
+
         stopVisualProgress(translations[currentLang].done);
+    } catch (err) {
         stopVisualProgress("Eroare slideshow: " + (err.message || err));
     } finally {
         btn.disabled = false;
